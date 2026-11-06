@@ -143,7 +143,7 @@ struct InstalledAppsListView: View {
                 Button(action: onEnableByPID) {
                     Image(systemName: "number.circle")
                 }
-                .accessibilityLabel("Enable JIT by PID")
+                .accessibilityLabel("Enable JIT by PID".localized)
             }
         }
 
@@ -153,7 +153,7 @@ struct InstalledAppsListView: View {
     private var trailingToolbarItem: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
             if showDoneButton {
-                Button("Done") {
+                Button("Done".localized) {
                     dismiss()
                 }
                 .fontWeight(.semibold)
@@ -171,7 +171,7 @@ struct InstalledAppsListView: View {
                         Image(systemName: "arrow.clockwise")
                     }
                 }
-                .accessibilityLabel("Refresh")
+                .accessibilityLabel("Refresh".localized)
                 .disabled(tunnel.isStarting || viewModel.isLoading)
             }
         }
@@ -315,7 +315,7 @@ struct InstalledAppsListView: View {
                     }
                 }
                 .contextMenu {
-                    Button((isPinned ? "Remove from Home" : "Add to Home").localized,
+                    Button((isPinned ? "Remove from Home".localized : "Add to Home".localized).localized,
                            systemImage: isPinned ? "star.slash" : "star") {
                         toggleSystemPin(bundleID: app.bundleID, appName: app.name)
                     }
@@ -328,7 +328,7 @@ struct InstalledAppsListView: View {
                     Button {
                         toggleSystemPin(bundleID: app.bundleID, appName: app.name)
                     } label: {
-                        Label((isPinned ? "Unpin" : "Pin").localized, systemImage: "star")
+                        Label((isPinned ? "Unpin".localized : "Pin".localized).localized, systemImage: "star")
                     }
                     .tint(.yellow)
                 }
@@ -580,3 +580,4 @@ struct InstalledAppsListView_Previews: PreviewProvider {
             .environment(\.colorScheme, .dark)
     }
 }
+

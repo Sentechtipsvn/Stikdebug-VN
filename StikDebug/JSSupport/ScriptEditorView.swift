@@ -46,7 +46,7 @@ struct ScriptEditorView: View {
         .onAppear(perform: loadScript)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
+                Button("Save".localized) {
                     saveScript()
                     dismiss()
                 }
@@ -64,3 +64,4 @@ struct ScriptEditorView: View {
         try? scriptContent.write(to: scriptURL, atomically: true, encoding: .utf8)
     }
 }
+

@@ -59,7 +59,7 @@ struct HomeView: View {
             handleExternalURL(url)
         }
         .confirmationDialog(
-            pendingExternalURLAction?.title ?? "External Request",
+            pendingExternalURLAction?.title ?? "External Request".localized,
             isPresented: Binding(
                 get: { pendingExternalURLAction != nil },
                 set: { isPresented in
@@ -75,14 +75,14 @@ struct HomeView: View {
                 performExternalURLAction(action)
                 pendingExternalURLAction = nil
             }
-            Button("Cancel", role: .cancel) {
+            Button("Cancel".localized, role: .cancel) {
                 pendingExternalURLAction = nil
             }
         } message: { action in
             Text(action.message)
         }
         .alert(
-            "Enable JIT for LiveContainer?",
+            "Enable JIT for LiveContainer?".localized,
             isPresented: Binding(
                 get: { pendingLiveContainerApp != nil },
                 set: { isPresented in
@@ -93,18 +93,18 @@ struct HomeView: View {
             ),
             presenting: pendingLiveContainerApp
         ) { app in
-            Button("Cancel", role: .cancel) {
+            Button("Cancel".localized, role: .cancel) {
                 pendingLiveContainerApp = nil
             }
-            Button("Proceed") {
+            Button("Proceed".localized) {
                 pendingLiveContainerApp = nil
                 enableJITForSelectedApp(bundleID: app.bundleID, name: app.name)
             }
         } message: { _ in
-            Text("StikDebug isn't meant to enable JIT for LiveContainer manually. Select StikDebug in LiveContainer settings, enable \"Run with JIT\" for your app, then open your app normally. It will automatically jump back here.")
+            Text("StikDebug isn't meant to enable JIT for LiveContainer manually. Select StikDebug in LiveContainer settings, enable \"Run with JIT\" for your app, then open your app normally. It will automatically jump back here.".localized)
         }
         .alert(
-            "Enable JIT for StikDebug?",
+            "Enable JIT for StikDebug?".localized,
             isPresented: Binding(
                 get: { pendingStikDebugApp != nil },
                 set: { isPresented in
@@ -115,15 +115,15 @@ struct HomeView: View {
             ),
             presenting: pendingStikDebugApp
         ) { app in
-            Button("Cancel", role: .cancel) {
+            Button("Cancel".localized, role: .cancel) {
                 pendingStikDebugApp = nil
             }
-            Button("Proceed") {
+            Button("Proceed".localized) {
                 pendingStikDebugApp = nil
                 enableJITForSelectedApp(bundleID: app.bundleID, name: app.name)
             }
         } message: { _ in
-            Text("StikDebug isn't meant to attach to itself. Enabling JIT for StikDebug serves no purpose. Select the app you want to enable JIT for instead.")
+            Text("StikDebug isn't meant to attach to itself. Enabling JIT for StikDebug serves no purpose. Select the app you want to enable JIT for instead.".localized)
         }
         .fileImporter(
             isPresented: $isShowingPairingFilePicker,
@@ -140,7 +140,7 @@ struct HomeView: View {
                 RunJSView(model: model)
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button("Done") { scriptRunModel = nil }
+                            Button("Done".localized) { scriptRunModel = nil }
                         }
                     }
                     .navigationBarTitleDisplayMode(.inline)
@@ -161,7 +161,7 @@ struct HomeView: View {
                 scriptData = try Data(contentsOf: scriptURL)
             } catch {
                 showAlert(
-                    title: "Unable to Read Script",
+                    title: "Unable to Read Script".localized,
                     message: error.localizedDescription,
                     showOk: true
                 )
@@ -322,7 +322,7 @@ struct HomeView: View {
                 } catch {
                     DispatchQueue.main.async {
                         LogManager.shared.addErrorLog("Failed to kill process \(target.description): \(error.localizedDescription)")
-                        showAlert(title: "Failed to Kill Process", message: error.localizedDescription, showOk: true)
+                        showAlert(title: "Failed to Kill Process".localized, message: error.localizedDescription, showOk: true)
                     }
                 }
             }
@@ -449,7 +449,7 @@ struct HomeView: View {
 
             var callback: DebugAppCallback? = nil
             if ProcessInfo.processInfo.hasTXM, let sd = scriptData {
-                callback = getJsCallback(sd, name: scriptName ?? bundleID ?? "Script", resumeBundleID: resumeBundleID)
+                callback = getJsCallback(sd, name: scriptName ?? bundleID ?? "Script".localized, resumeBundleID: resumeBundleID)
             }
 
             var lastDebugMessage: String?
@@ -520,48 +520,48 @@ private struct PIDJITConfigurationView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Process") {
+                Section("Process".localized) {
                     TextField("PID", text: $pidText)
                         .keyboardType(.numberPad)
-                    Text("Enter the process identifier of a currently running app.")
+                    Text("Enter the process identifier of a currently running app.".localized)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                Section("Script (Optional)") {
+                Section("Script (Optional)".localized) {
                     LabeledContent(
-                        "Selected Script",
-                        value: selectedScriptURL?.lastPathComponent ?? "None"
+                        "Selected Script".localized,
+                        value: selectedScriptURL?.lastPathComponent ?? "None".localized
                     )
 
-                    Button(selectedScriptURL == nil ? "Choose Script" : "Change Script") {
+                    Button(selectedScriptURL == nil ? "Choose Script".localized : "Change Script".localized) {
                         isShowingScriptPicker = true
                     }
                     .disabled(!ProcessInfo.processInfo.hasTXM)
 
                     if selectedScriptURL != nil {
-                        Button("Remove Script", role: .destructive) {
+                        Button("Remove Script".localized, role: .destructive) {
                             selectedScriptURL = nil
                         }
                     }
 
                     if !ProcessInfo.processInfo.hasTXM {
-                        Text("Script execution is disabled on this device.")
+                        Text("Script execution is disabled on this device.".localized)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
-            .navigationTitle("Enable JIT by PID")
+            .navigationTitle("Enable JIT by PID".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("Cancel".localized) {
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Enable JIT") {
+                    Button("Enable JIT".localized) {
                         if let pid {
                             onEnable(pid, selectedScriptURL)
                         }
@@ -582,3 +582,4 @@ private struct PIDJITConfigurationView: View {
 #Preview {
     HomeView()
 }
+

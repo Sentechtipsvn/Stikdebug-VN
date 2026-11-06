@@ -19,6 +19,8 @@ struct StikDebugApp: App {
     var body: some Scene {
         WindowGroup {
             MainTabView()
+                .environment(\.locale, Locale(identifier: "vi"))
+                .tint(.green)
                 .task {
                     await downloadMissingDeveloperDiskImageFiles()
                 }
@@ -49,11 +51,12 @@ struct StikDebugApp: App {
         } catch {
             await MainActor.run {
                 showAlert(
-                    title: "An Error has Occurred",
-                    message: "[Download DDI Error]: \(error.localizedDescription)",
+                    title: "An Error has Occurred".localized,
+                    message: "[Lỗi tải DDI]: \(error.localizedDescription)",
                     showOk: true
                 )
             }
         }
     }
 }
+

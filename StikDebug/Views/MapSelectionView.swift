@@ -52,7 +52,7 @@ private struct RoutePlaybackSample {
     let delayFromPrevious: TimeInterval
 }
 
-private struct OpenStreetMapWay {
+struct OpenStreetMapWay {
     let geometry: [CLLocationCoordinate2D]
     let speedLimitMetersPerSecond: CLLocationSpeed
 }
@@ -239,7 +239,7 @@ private func overpassQuery(for coordinates: [CLLocationCoordinate2D]) -> String?
     """
 }
 
-private func fetchOpenStreetMapWays(for coordinates: [CLLocationCoordinate2D]) async throws -> [OpenStreetMapWay] {
+func fetchOpenStreetMapWays(for coordinates: [CLLocationCoordinate2D]) async throws -> [OpenStreetMapWay] {
     guard let query = overpassQuery(for: coordinates) else { return [] }
 
     var components = URLComponents(url: OpenStreetMapSpeedLimitService.endpoint, resolvingAgainstBaseURL: false)
@@ -273,7 +273,7 @@ private func fetchOpenStreetMapWays(for coordinates: [CLLocationCoordinate2D]) a
     }
 }
 
-private func nearestSpeedLimit(
+func nearestSpeedLimit(
     forSegmentFrom start: CLLocationCoordinate2D,
     to end: CLLocationCoordinate2D,
     using ways: [OpenStreetMapWay]
@@ -357,14 +357,14 @@ private enum CoordinateImportError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .emptyFile:
-            return "The selected file is empty."
+            return "The selected file is empty.".localized
         case .noCoordinates:
-            return "No valid coordinates were found. Use GPX, GeoJSON, JSON, CSV, or plain text with latitude and longitude values."
+            return "No valid coordinates were found. Use GPX, GeoJSON, JSON, CSV, or plain text with latitude and longitude values.".localized
         }
     }
 }
 
-private enum CoordinateImportParser {
+enum CoordinateImportParser {
     static let supportedContentTypes: [UTType] = [
         .plainText,
         .commaSeparatedText,
@@ -831,26 +831,26 @@ struct LocationSimulationView: View {
 
     private var routeStatusText: String {
         if simulationSession.routeCoordinates != nil {
-            return "Route simulation active."
+            return "Route simulation active.".localized
         }
         if isLoadingRoute {
-            return "Calculating route…"
+            return "Calculating route…".localized
         }
         if isPrefetchingRouteSpeeds {
-            return "Prefetching road speeds…"
+            return "Prefetching road speeds…".localized
         }
         if routePlan != nil {
-            return "Route ready."
+            return "Route ready.".localized
         }
         if routeStartSelection != nil || routeEndSelection != nil {
-            return "Pick both route endpoints to build the drive."
+            return "Pick both route endpoints to build the drive.".localized
         }
-        return "Plan a route from the toolbar."
+        return "Plan a route from the toolbar.".localized
     }
 
     private var routeAttributionLink: some View {
         Link(
-            "Speed limit data © OpenStreetMap contributors (ODbL)",
+            "Speed limit data © OpenStreetMap contributors (ODbL)".localized,
             destination: OpenStreetMapSpeedLimitService.copyrightURL
         )
         .font(.caption2)
@@ -900,19 +900,19 @@ struct LocationSimulationView: View {
                                 .stroke(.blue.opacity(0.8), lineWidth: 5)
                         }
                         if let routeStartCoordinate {
-                            Marker("Start", coordinate: routeStartCoordinate)
+                            Marker("Start".localized, coordinate: routeStartCoordinate)
                                 .tint(.green)
                         }
                         if let routeEndCoordinate {
-                            Marker("End", coordinate: routeEndCoordinate)
+                            Marker("End".localized, coordinate: routeEndCoordinate)
                                 .tint(.red)
                         }
                         if let displayedRouteCoordinate {
-                            Marker("Current", coordinate: displayedRouteCoordinate)
+                            Marker("Current".localized, coordinate: displayedRouteCoordinate)
                                 .tint(.blue)
                         }
                     } else if let coordinate {
-                        Marker("Pin", coordinate: coordinate)
+                        Marker("Pin".localized, coordinate: coordinate)
                             .tint(.red)
                     }
                 }
@@ -948,7 +948,7 @@ struct LocationSimulationView: View {
 
                 VStack(spacing: 12) {
                     if isImportingCoordinates {
-                        ProgressView("Importing coordinates…")
+                        ProgressView("Importing coordinates…".localized)
                             .font(.footnote)
                     }
 
@@ -1019,10 +1019,10 @@ struct LocationSimulationView: View {
                     Image(systemName: "square.and.arrow.down")
                 }
                 .disabled(isBusy || isRouteRunning || isImportingCoordinates)
-                .accessibilityLabel("Import Coordinates")
+                .accessibilityLabel("Import Coordinates".localized)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                TextField("Search location...", text: $searchText)
+                TextField("Search location...".localized, text: $searchText)
                     .padding(.leading, 6)
                     .autocorrectionDisabled()
                     .submitLabel(.go)
@@ -1039,12 +1039,12 @@ struct LocationSimulationView: View {
         } message: {
             Text(alertMessage)
         }
-        .alert("Save Bookmark", isPresented: $showSaveBookmark) {
-            TextField("Name", text: $newBookmarkName)
-            Button("Save") { addBookmark() }
-            Button("Cancel", role: .cancel) { newBookmarkName = "" }
+        .alert("Save Bookmark".localized, isPresented: $showSaveBookmark) {
+            TextField("Name".localized, text: $newBookmarkName)
+            Button("Save".localized) { addBookmark() }
+            Button("Cancel".localized, role: .cancel) { newBookmarkName = "" }
         } message: {
-            Text("Enter a name for this location.")
+            Text("Enter a name for this location.".localized)
         }
         .sheet(isPresented: $showBookmarks) {
             BookmarksView(bookmarks: $bookmarks) { bookmark in
@@ -1078,10 +1078,10 @@ struct LocationSimulationView: View {
                 coordinate = nil
                 routePolyline = makeRoutePolyline(for: routeCoordinates)
                 routeStartSelection = routeCoordinates.first.map {
-                    RouteSearchSelection(title: "Route Start", coordinate: $0)
+                    RouteSearchSelection(title: "Route Start".localized, coordinate: $0)
                 }
                 routeEndSelection = routeCoordinates.last.map {
-                    RouteSearchSelection(title: "Route End", coordinate: $0)
+                    RouteSearchSelection(title: "Route End".localized, coordinate: $0)
                 }
                 if let routePolyline {
                     position = .rect(routePolyline.boundingMapRect)
@@ -1161,7 +1161,7 @@ struct LocationSimulationView: View {
 
         searchText = ""
         searchCompleter.results = []
-        applyImportedCoordinates(importedCoordinates, sourceName: "Imported")
+        applyImportedCoordinates(importedCoordinates, sourceName: "Imported".localized)
     }
 
     private func importCoordinates(_ result: Result<[URL], Error>) {
@@ -1181,7 +1181,7 @@ struct LocationSimulationView: View {
                         isImportingCoordinates = false
                         applyImportedCoordinates(
                             coordinates,
-                            sourceName: sourceName.isEmpty ? "Imported" : sourceName
+                            sourceName: sourceName.isEmpty ? "Imported".localized : sourceName
                         )
                     }
                 } catch {
@@ -1268,7 +1268,7 @@ struct LocationSimulationView: View {
     }
 
     private func showImportError(_ error: Error) {
-        alertTitle = "Import Failed"
+        alertTitle = "Import Failed".localized
         alertMessage = error.localizedDescription
         showAlert = true
     }
@@ -1281,12 +1281,12 @@ struct LocationSimulationView: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 12) {
-                Button("Stop", action: clear)
+                Button("Stop".localized, action: clear)
                     .buttonStyle(.bordered)
                     .tint(.red)
                     .disabled(!pairingExists || isBusy || !hasActiveSimulation)
 
-                Button("Simulate Location", action: simulate)
+                Button("Simulate Location".localized, action: simulate)
                     .buttonStyle(.borderedProminent)
                     .disabled(!pairingExists || isBusy || isLoadingRoute)
 
@@ -1300,7 +1300,7 @@ struct LocationSimulationView: View {
                 .disabled(isRouteRunning)
             }
         } else {
-            Text("Tap map to drop pin")
+            Text("Tap map to drop pin".localized)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -1324,12 +1324,12 @@ struct LocationSimulationView: View {
             routeAttributionLink
 
             HStack(spacing: 12) {
-                Button("Stop", action: clear)
+                Button("Stop".localized, action: clear)
                     .buttonStyle(.bordered)
                     .tint(.red)
                     .disabled(!pairingExists || isBusy || !hasActiveSimulation)
 
-                Button("Play Route", action: simulateRoute)
+                Button("Play Route".localized, action: simulateRoute)
                     .buttonStyle(.borderedProminent)
                     .disabled(
                         !pairingExists ||
@@ -1340,7 +1340,7 @@ struct LocationSimulationView: View {
                         routePlaybackSamples.isEmpty
                     )
 
-                Button("Reset", action: resetRouteSelection)
+                Button("Reset".localized, action: resetRouteSelection)
                     .buttonStyle(.bordered)
                     .disabled(isBusy || isRouteRunning)
             }
@@ -1350,9 +1350,9 @@ struct LocationSimulationView: View {
     private func simulate() {
         guard pairingExists, let coord = coordinate, !isBusy else { return }
         runLocationCommand(
-            errorTitle: "Simulation Failed",
+            errorTitle: "Simulation Failed".localized,
             errorMessage: { code in
-                "Could not simulate location (error \(code)). Make sure the device is connected and the DDI is mounted."
+                "Không mô phỏng được vị trí (mã \(code)). Kiểm tra kết nối thiết bị và DDI."
             },
             operation: { locationUpdateCode(for: coord) }
         ) {
@@ -1373,9 +1373,9 @@ struct LocationSimulationView: View {
         stopResendLoop()
         cancelRoutePlayback(resetMarker: false)
         runLocationCommand(
-            errorTitle: "Route Simulation Failed",
+            errorTitle: "Route Simulation Failed".localized,
             errorMessage: { code in
-                "Could not start route simulation (error \(code)). Make sure the device is connected and the DDI is mounted."
+                "Không bắt đầu được tuyến (mã \(code)). Kiểm tra kết nối thiết bị và DDI."
             },
             operation: { locationUpdateCode(for: firstCoordinate) }
         ) {
@@ -1425,8 +1425,8 @@ struct LocationSimulationView: View {
         stopResendLoop()
         LocationSimulationSession.shared.clearRoute()
         runLocationCommand(
-            errorTitle: "Clear Failed",
-            errorMessage: { code in "Could not clear simulated location (error \(code))." },
+            errorTitle: "Clear Failed".localized,
+            errorMessage: { code in "Không xóa được vị trí mô phỏng (mã \(code))." },
             operation: clear_simulated_location
         ) {
             endBackgroundTask()
@@ -1523,7 +1523,7 @@ struct LocationSimulationView: View {
                     throw NSError(
                         domain: "RouteSimulation",
                         code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: "No drivable route was returned."]
+                        userInfo: [NSLocalizedDescriptionKey: "No drivable route was returned.".localized]
                     )
                 }
 
@@ -1578,7 +1578,7 @@ struct LocationSimulationView: View {
                     guard routeRequestID == requestID else { return }
                     isLoadingRoute = false
                     isPrefetchingRouteSpeeds = false
-                    alertTitle = "Route Failed"
+                    alertTitle = "Route Failed".localized
                     alertMessage = error.localizedDescription
                     showAlert = true
                 }
@@ -1607,8 +1607,8 @@ struct LocationSimulationView: View {
                         if let lastSuccessfulCoordinate {
                             startResendLoop(with: lastSuccessfulCoordinate)
                         }
-                        alertTitle = "Route Simulation Failed"
-                        alertMessage = "Could not continue route simulation (error \(code))."
+                        alertTitle = "Route Simulation Failed".localized
+                        alertMessage = "Không tiếp tục được tuyến (mã \(code))."
                         connectionErrorMessage = "Code \(code): Could not continue route simulation."
                         locationConnectionNotice = nil
                         showAlert = true
@@ -1700,7 +1700,7 @@ private struct RouteSearchSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 routeField(
-                    title: "Start",
+                    title: "Start".localized,
                     icon: "circle.fill",
                     tint: .green,
                     text: $startQuery,
@@ -1709,7 +1709,7 @@ private struct RouteSearchSheet: View {
                 )
 
                 routeField(
-                    title: "End",
+                    title: "End".localized,
                     icon: "flag.checkered.circle.fill",
                     tint: .red,
                     text: $endQuery,
@@ -1724,7 +1724,7 @@ private struct RouteSearchSheet: View {
                 }
 
                 if isResolvingSelection {
-                    ProgressView("Resolving location…")
+                    ProgressView("Resolving location…".localized)
                         .font(.footnote)
                 } else if !activeResults.isEmpty {
                     ScrollView {
@@ -1758,7 +1758,7 @@ private struct RouteSearchSheet: View {
                     }
                     .frame(maxHeight: 260)
                 } else {
-                    Text("Search for a start and destination to build the route.")
+                    Text("Search for a start and destination to build the route.".localized)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -1766,17 +1766,17 @@ private struct RouteSearchSheet: View {
                 Spacer(minLength: 0)
             }
             .padding(16)
-            .navigationTitle("Simulate Route")
+            .navigationTitle("Simulate Route".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("Cancel".localized) {
                         dismiss()
                     }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Use Route") {
+                    Button("Use Route".localized) {
                         guard let startSelection, let endSelection else { return }
                         onApply(startSelection, endSelection)
                         dismiss()
@@ -1866,7 +1866,7 @@ private struct RouteSearchSheet: View {
                 isResolvingSelection = false
 
                 guard let item = response?.mapItems.first else {
-                    errorMessage = error?.localizedDescription ?? "Could not resolve that location."
+                    errorMessage = error?.localizedDescription ?? "Could not resolve that location.".localized
                     return
                 }
 
@@ -1903,9 +1903,9 @@ struct BookmarksView: View {
             Group {
                 if bookmarks.isEmpty {
                     ContentUnavailableView(
-                        "No Bookmarks",
+                        "No Bookmarks".localized,
                         systemImage: "bookmark.slash",
-                        description: Text("Drop a pin on the map and tap the bookmark icon to save a location.")
+                        description: Text("Drop a pin on the map and tap the bookmark icon to save a location.".localized)
                     )
                 } else {
                     List {
@@ -1926,7 +1926,7 @@ struct BookmarksView: View {
                     }
                 }
             }
-            .navigationTitle("Bookmarks")
+            .navigationTitle("Bookmarks".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if !bookmarks.isEmpty {
@@ -1936,3 +1936,4 @@ struct BookmarksView: View {
         }
     }
 }
+

@@ -10,7 +10,7 @@ struct OnDevicePairingView: View {
         Form {
             content
         }
-        .navigationTitle("Create Pairing File")
+        .navigationTitle("Create Pairing File".localized)
         .navigationBarTitleDisplayMode(.inline)
         .animation(.default, value: service.phase)
         .sheet(isPresented: $showingAppPlacement) {
@@ -32,16 +32,16 @@ struct OnDevicePairingView: View {
                     pairingAppleTV = false
                     service.start(discoverAppleTVs: false)
                 } label: {
-                    Label("Pair iPhone or iPad", systemImage: "iphone")
+                    Label("Pair iPhone or iPad".localized, systemImage: "iphone")
                 }
                 Button {
                     pairingAppleTV = true
                     service.start(advertisePhone: false)
                 } label: {
-                    Label("Pair Apple TV", systemImage: "appletv")
+                    Label("Pair Apple TV".localized, systemImage: "appletv")
                 }
             } footer: {
-                Text("Create a pairing file without a computer. The iPhone or iPad being paired must run iOS or iPadOS 27 or later. Apple TV pairing is also supported.")
+                Text("Create a pairing file without a computer. The iPhone or iPad being paired must run iOS or iPadOS 27 or later. Apple TV pairing is also supported.".localized)
             }
 
         case .discovering:
@@ -50,7 +50,7 @@ struct OnDevicePairingView: View {
                     if service.appleTVDevices.isEmpty {
                         HStack(spacing: 12) {
                             ProgressView()
-                            Text("Looking for Apple TVs…")
+                            Text("Looking for Apple TVs…".localized)
                                 .foregroundStyle(.secondary)
                         }
                     } else {
@@ -64,27 +64,27 @@ struct OnDevicePairingView: View {
                         }
                     }
                 } header: {
-                    Text("Choose an Apple TV")
+                    Text("Choose an Apple TV".localized)
                 } footer: {
-                    Text("On Apple TV, open Settings › Remotes and Devices › Remote App and Devices.")
+                    Text("On Apple TV, open Settings › Remotes and Devices › Remote App and Devices.".localized)
                 }
             } else {
                 Section {
                     HStack(spacing: 12) {
                         ProgressView()
-                        Text("Waiting for a device to connect…")
+                        Text("Waiting for a device to connect…".localized)
                             .foregroundStyle(.secondary)
                     }
                 }
                 Section {
-                    guideStep(1, "Open Settings on the device being paired.")
-                    guideStep(2, "Go to Privacy & Security › Developer Mode.")
-                    guideStep(3, "Tap Pair with \(service.hostname).")
-                    guideStep(4, "Enter the code shown by StikDebug or in its notification.")
+                    guideStep(1, "Open Settings on the device being paired.".localized)
+                    guideStep(2, "Go to Privacy & Security › Developer Mode.".localized)
+                    guideStep(3, "Bấm Ghép đôi với \(service.hostname).")
+                    guideStep(4, "Enter the code shown by StikDebug or in its notification.".localized)
                 } header: {
-                    Text("On the iPhone or iPad")
+                    Text("On the iPhone or iPad".localized)
                 } footer: {
-                    Text("For this device, StikDebug stays active while you open Settings. For another device, keep this screen open to see its code.")
+                    Text("For this device, StikDebug stays active while you open Settings. For another device, keep this screen open to see its code.".localized)
                 }
             }
             cancelSection
@@ -94,8 +94,8 @@ struct OnDevicePairingView: View {
                 HStack(spacing: 12) {
                     ProgressView()
                     Text(service.mode == .appleTV
-                         ? "Pairing with \(service.selectedAppleTVName ?? "Apple TV")…"
-                         : "Confirming the iPhone or iPad pairing…")
+                         ? "Đang ghép đôi với \(service.selectedAppleTVName ?? "Apple TV")…"
+                         : "Confirming the iPhone or iPad pairing…".localized)
                 }
             }
             cancelSection
@@ -104,8 +104,8 @@ struct OnDevicePairingView: View {
             Section {
                 VStack(spacing: 14) {
                     Text(service.mode == .localDevice
-                         ? "Enter this code in Settings on this device"
-                         : "Enter this code on the other device")
+                         ? "Enter this code in Settings on this device".localized
+                         : "Enter this code on the other device".localized)
                         .font(.headline)
                         .multilineTextAlignment(.center)
                     Text(pin)
@@ -122,7 +122,7 @@ struct OnDevicePairingView: View {
 
         case .appleTVPIN:
             Section {
-                TextField("Six-digit code", text: $appleTVPIN)
+                TextField("Six-digit code".localized, text: $appleTVPIN)
                     .keyboardType(.numberPad)
                     .textContentType(.oneTimeCode)
                     .multilineTextAlignment(.center)
@@ -130,28 +130,28 @@ struct OnDevicePairingView: View {
                     .onChange(of: appleTVPIN) { _, newValue in
                         appleTVPIN = String(newValue.filter { $0 >= "0" && $0 <= "9" }.prefix(6))
                     }
-                Button("Pair") {
+                Button("Pair".localized) {
                     service.submitAppleTVPIN(appleTVPIN)
                     appleTVPIN = ""
                 }
                 .disabled(appleTVPIN.count != 6)
             } header: {
-                Text("Pair with \(service.selectedAppleTVName ?? "Apple TV")")
+                Text("Ghép đôi với \(service.selectedAppleTVName ?? "Apple TV")")
             } footer: {
-                Text("Enter the six-digit code shown on your Apple TV.")
+                Text("Enter the six-digit code shown on your Apple TV.".localized)
             }
             cancelSection
 
         case .success(let name, let model, let isLocal):
             Section {
-                Label("Pairing Complete", systemImage: "checkmark.seal.fill")
+                Label("Pairing Complete".localized, systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
                 if !name.isEmpty || !model.isEmpty {
                     Text([name, model].filter { !$0.isEmpty }.joined(separator: " · "))
                         .foregroundStyle(.secondary)
                 }
                 if isLocal {
-                    Label("Now used by StikDebug", systemImage: "checkmark.circle.fill")
+                    Label("Now used by StikDebug".localized, systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                 }
             }
@@ -160,23 +160,23 @@ struct OnDevicePairingView: View {
                     Button {
                         showingAppPlacement = true
                     } label: {
-                        Label("Place in Another App", systemImage: "square.and.arrow.down.on.square")
+                        Label("Place in Another App".localized, systemImage: "square.and.arrow.down.on.square")
                     }
                 }
                 if let exportURL = service.exportURL {
                     ShareLink(item: exportURL) {
-                        Label("Export Pairing File", systemImage: "square.and.arrow.up")
+                        Label("Export Pairing File".localized, systemImage: "square.and.arrow.up")
                     }
                 }
             } footer: {
                 Text(isLocal
-                     ? "The pairing file is saved in StikDebug. You can also place it in a supported app or export it."
-                     : "You can place this pairing file in a supported app on the paired device or export it.")
+                     ? "The pairing file is saved in StikDebug. You can also place it in a supported app or export it.".localized
+                     : "You can place this pairing file in a supported app on the paired device or export it.".localized)
             }
 
         case .failed(let message):
             Section {
-                Label("Pairing Failed", systemImage: "xmark.octagon.fill")
+                Label("Pairing Failed".localized, systemImage: "xmark.octagon.fill")
                     .foregroundStyle(.red)
                 Text(message)
                     .font(.footnote)
@@ -184,7 +184,7 @@ struct OnDevicePairingView: View {
                     .textSelection(.enabled)
             }
             Section {
-                Button("Try Again") {
+                Button("Try Again".localized) {
                     service.reset()
                 }
             }
@@ -193,7 +193,7 @@ struct OnDevicePairingView: View {
 
     private var cancelSection: some View {
         Section {
-            Button("Cancel", role: .cancel) {
+            Button("Cancel".localized, role: .cancel) {
                 service.cancel()
             }
         }
@@ -229,12 +229,12 @@ private struct PairingFilePlacementView: View {
             Form {
                 Section {
                     if isLoading {
-                        ProgressView("Loading installed apps…")
+                        ProgressView("Loading installed apps…".localized)
                             .frame(maxWidth: .infinity)
                     } else if apps.isEmpty {
                         Text(target == nil
-                             ? "No supported apps were found on this device."
-                             : "No supported apps were found on the paired device.")
+                             ? "No supported apps were found on this device.".localized
+                             : "No supported apps were found on the paired device.".localized)
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(apps) { app in
@@ -252,15 +252,15 @@ private struct PairingFilePlacementView: View {
                         }
                     }
                 } header: {
-                    Text("Choose an App")
+                    Text("Choose an App".localized)
                 } footer: {
                     Text(target == nil
-                         ? "LocalDevVPN must be enabled. Only apps with known Remote Pairing file destinations are listed. The selected app must allow access to its Documents folder."
-                         : "Keep both devices on the same Wi-Fi network. Apps are read from the paired device. The selected app must allow access to its Documents folder.")
+                         ? "LocalDevVPN must be enabled. Only apps with known Remote Pairing file destinations are listed. The selected app must allow access to its Documents folder.".localized
+                         : "Keep both devices on the same Wi-Fi network. Apps are read from the paired device. The selected app must allow access to its Documents folder.".localized)
                 }
                 if let placingApp {
                     Section {
-                        ProgressView("Placing pairing file in \(placingApp.name)…")
+                        ProgressView("Đang đặt tệp ghép đôi vào \(placingApp.name)…")
                             .frame(maxWidth: .infinity)
                     }
                 }
@@ -271,16 +271,16 @@ private struct PairingFilePlacementView: View {
                     }
                 }
             }
-            .navigationTitle("Place Pairing File")
+            .navigationTitle("Place Pairing File".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Done".localized) { dismiss() }
                         .disabled(placingApp != nil)
                 }
             }
             .confirmationDialog(
-                "Replace the pairing file in \(pendingApp?.name ?? "this app")?",
+                "Thay tệp ghép đôi trong \(pendingApp?.name ?? "this app")?",
                 isPresented: Binding(
                     get: { pendingApp != nil },
                     set: { if !$0 { pendingApp = nil } }
@@ -288,13 +288,13 @@ private struct PairingFilePlacementView: View {
                 titleVisibility: .visible,
                 presenting: pendingApp
             ) { app in
-                Button("Place Pairing File", role: .destructive) {
+                Button("Place Pairing File".localized, role: .destructive) {
                     pendingApp = nil
                     place(in: app)
                 }
-                Button("Cancel", role: .cancel) { pendingApp = nil }
+                Button("Cancel".localized, role: .cancel) { pendingApp = nil }
             } message: { app in
-                Text("Writes Documents/\(app.path), replacing any existing pairing file.")
+                Text("Ghi Documents/\(app.path), thay thế tệp ghép đôi hiện có.")
             }
         }
         .interactiveDismissDisabled(placingApp != nil)
@@ -324,7 +324,7 @@ private struct PairingFilePlacementView: View {
                     try JITEnableContext.shared.placePairingFile(data, in: app, target: target)
                 }.value
                 isError = false
-                message = "Pairing file placed in \(app.name)."
+                message = "Đã đặt tệp ghép đôi trong \(app.name)."
             } catch {
                 isError = true
                 message = error.localizedDescription
@@ -333,3 +333,4 @@ private struct PairingFilePlacementView: View {
         }
     }
 }
+

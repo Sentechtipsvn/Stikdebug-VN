@@ -5,9 +5,11 @@
     "Release",
   ],
   "localizations": {
-    "development": "en",
+    "development": "vi",
     "supported": [
       "Base",
+      "en",
+      "vi",
       "es",
       "it",
     ],
@@ -104,10 +106,11 @@
         ],
         "INFOPLIST_FILE": "StikDebug/Info.plist",
         "INFOPLIST_KEY_ITSAppUsesNonExemptEncryption": "NO",
+        "INFOPLIST_KEY_CFBundleDisplayName": "StikDebug VN",
         "INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace": "YES",
-        "INFOPLIST_KEY_NSLocalNetworkUsageDescription": "StikDebug needs access to devices on your local network so it can connect to the targets you add to the Device Library.",
-        "INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription": "StikDebug uses location to stay running in the background and maintain your JIT connection.",
-        "INFOPLIST_KEY_NSLocationWhenInUseUsageDescription": "StikDebug uses location to stay running in the background and maintain your JIT connection.",
+        "INFOPLIST_KEY_NSLocalNetworkUsageDescription": "StikDebug VN cần truy cập mạng cục bộ để kết nối và gỡ lỗi thiết bị của Sếp.",
+        "INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription": "StikDebug VN dùng vị trí để chọn điểm đi và duy trì phiên mô phỏng hoặc JIT khi chạy nền.",
+        "INFOPLIST_KEY_NSLocationWhenInUseUsageDescription": "StikDebug VN dùng vị trí để chọn điểm đi và duy trì phiên mô phỏng hoặc JIT khi chạy nền.",
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]": "YES",
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]": "YES",
         "INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]": "YES",
@@ -127,8 +130,8 @@
           "$(PROJECT_DIR)/StikDebug/idevice",
         ],
         "MACOSX_DEPLOYMENT_TARGET": "15.1",
-        "MARKETING_VERSION": "3.2.0",
-        "PRODUCT_BUNDLE_IDENTIFIER": "com.stik.stikdebug",
+        "MARKETING_VERSION": "3.2.1",
+        "PRODUCT_BUNDLE_IDENTIFIER": "com.sentechtipsvn.stikdebugvn",
         "PRODUCT_NAME": "$(TARGET_NAME)",
         "PROVISIONING_PROFILE_SPECIFIER": "",
         "SDKROOT": "auto",
@@ -282,3 +285,4 @@
   "last-upgrade": "16.2",
   "last-swift-update": "16.2",
 }
+

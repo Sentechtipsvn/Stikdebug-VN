@@ -16,7 +16,7 @@ final class RunJSViewModel: ObservableObject, Identifiable, @unchecked Sendable 
     let id = UUID()
     var context: JSContext?
     @Published var logs: [String] = []
-    @Published var scriptName: String = "Script"
+    @Published var scriptName: String = "Script".localized
     @Published var executionInterrupted = false
     var pid: Int
     var debugProxy: OpaquePointer?
@@ -40,7 +40,7 @@ final class RunJSViewModel: ObservableObject, Identifiable, @unchecked Sendable 
     }
     
     func runScript(data: Data, name: String? = nil) throws {
-        let displayName = name ?? "Script"
+        let displayName = name ?? "Script".localized
         DispatchQueue.main.async {
             self.scriptName = displayName
         }
@@ -57,11 +57,11 @@ final class RunJSViewModel: ObservableObject, Identifiable, @unchecked Sendable 
         
         let sendCommandFunction: @convention(block) (String?) -> String? = { commandStr in
             guard let commandStr else {
-                self.context?.exception = JSValue(object: "Command should not be nil.", in: self.context!)
+                self.context?.exception = JSValue(object: "Command should not be nil.".localized, in: self.context!)
                 return ""
             }
             if self.executionInterrupted {
-                self.context?.exception = JSValue(object: "Script execution is interrupted by StikDebug.", in: self.context!)
+                self.context?.exception = JSValue(object: "Script execution is interrupted by StikDebug.".localized, in: self.context!)
                 return ""
             }
 
@@ -111,8 +111,8 @@ final class RunJSViewModel: ObservableObject, Identifiable, @unchecked Sendable 
             if let exception = self.context?.exception {
                 self.logs.append(exception.debugDescription)
             }
-            self.logs.append("Script Execution Completed")
-            self.logs.append("You are safe to close this window.")
+            self.logs.append("Script Execution Completed".localized)
+            self.logs.append("You are safe to close this window.".localized)
         }
     }
     
@@ -152,11 +152,11 @@ final class RunJSViewModel: ObservableObject, Identifiable, @unchecked Sendable 
 
     private func captureScreenshot(named preferredName: String?) -> String {
         if executionInterrupted {
-            raiseException("Script execution is interrupted by StikDebug.")
+            raiseException("Script execution is interrupted by StikDebug.".localized)
             return ""
         }
         guard let remoteServer else {
-            raiseException("Screenshot capture is unavailable in the current session.")
+            raiseException("Screenshot capture is unavailable in the current session.".localized)
             return ""
         }
         
@@ -169,7 +169,7 @@ final class RunJSViewModel: ObservableObject, Identifiable, @unchecked Sendable 
             return ""
         }
         guard let screenshotClient else {
-            raiseException("Failed to allocate screenshot client.")
+            raiseException("Failed to allocate screenshot client.".localized)
             return ""
         }
         defer { screenshot_client_free(screenshotClient) }
@@ -184,7 +184,7 @@ final class RunJSViewModel: ObservableObject, Identifiable, @unchecked Sendable 
             return ""
         }
         guard let buffer else {
-            raiseException("Device returned empty screenshot data.")
+            raiseException("Device returned empty screenshot data.".localized)
             return ""
         }
         defer { idevice_data_free(buffer, length) }
@@ -270,7 +270,7 @@ struct RunJSView: View {
                     HStack(spacing: 12) {
                         ProgressView()
                             .controlSize(.small)
-                        Text("Starting script...")
+                        Text("Starting script...".localized)
                             .foregroundStyle(.secondary)
                     }
                 } else {
@@ -280,7 +280,7 @@ struct RunJSView: View {
                     }
                 }
             }
-            .navigationTitle("Running \(model.scriptName)")
+            .navigationTitle("Đang chạy \(model.scriptName)")
             .onChange(of: model.logs.count) { _, newCount in
                 guard newCount > 0 else { return }
                 withAnimation {
@@ -290,3 +290,4 @@ struct RunJSView: View {
         }
     }
 }
+

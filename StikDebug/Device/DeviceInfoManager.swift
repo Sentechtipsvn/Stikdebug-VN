@@ -34,7 +34,7 @@ final class DeviceInfoManager: ObservableObject {
                 try JITEnableContext.shared.ensureTunnel()
             } catch {
                 await MainActor.run {
-                    self.error = ("Initialization Failed", error.localizedDescription)
+                    self.error = ("Initialization Failed".localized, error.localizedDescription)
                     self.busy = false
                 }
                 return
@@ -49,7 +49,7 @@ final class DeviceInfoManager: ObservableObject {
                 }
             } catch {
                 await MainActor.run {
-                    self.error = ("Initialization Failed", error.localizedDescription)
+                    self.error = ("Initialization Failed".localized, error.localizedDescription)
                     self.busy = false
                 }
             }
@@ -66,7 +66,7 @@ final class DeviceInfoManager: ObservableObject {
                 cXml = try JITEnableContext.shared.ideviceInfoGetXML(withLockdownClient: lockdownHandle?.raw)
             } catch {
                 await MainActor.run {
-                    self.error = ("Fetch Error", "Failed to fetch device info \(error)")
+                    self.error = ("Fetch Error".localized, "Failed to fetch device info \(error)")
                     self.busy = false
                 }
                 return
@@ -76,7 +76,7 @@ final class DeviceInfoManager: ObservableObject {
             defer { plist_mem_free(cXml) }
             guard let xml = String(validatingUTF8: cXml) else {
                 await MainActor.run {
-                    self.error = ("Parse Error", "Invalid XML data")
+                    self.error = ("Parse Error".localized, "Invalid XML data".localized)
                     self.busy = false
                 }
                 return
@@ -94,7 +94,7 @@ final class DeviceInfoManager: ObservableObject {
                 }
             } catch {
                 await MainActor.run {
-                    self.error = ("Parse Error", error.localizedDescription)
+                    self.error = ("Parse Error".localized, error.localizedDescription)
                     self.busy = false
                 }
             }
@@ -164,9 +164,9 @@ struct DeviceInfoView: View {
             List {
                 if !isPaired {
                     Section {
-                        Label("No pairing file detected", systemImage: "exclamationmark.triangle.fill")
+                        Label("No pairing file detected".localized, systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
-                        Text("Import your device's pairing file to get started.")
+                        Text("Import your device's pairing file to get started.".localized)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -186,17 +186,17 @@ struct DeviceInfoView: View {
                             .padding(.vertical, 2)
                             .contextMenu {
                                 Button { copyToPasteboard(entry.value) } label: {
-                                    Label("Copy Value", systemImage: "doc.on.doc")
+                                    Label("Copy Value".localized, systemImage: "doc.on.doc")
                                 }
                                 Button { copyToPasteboard("\(entry.key): \(entry.value)") } label: {
-                                    Label("Copy Key & Value", systemImage: "doc.on.clipboard")
+                                    Label("Copy Key & Value".localized, systemImage: "doc.on.clipboard")
                                 }
                             }
                         }
                     }
                 } else if !mgr.busy && isPaired {
                     Section {
-                        Text("No info available").foregroundStyle(.secondary)
+                        Text("No info available".localized).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -204,20 +204,20 @@ struct DeviceInfoView: View {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search device info…"
+                prompt: "Search device info…".localized
             )
-            .navigationTitle("Device Info")
+            .navigationTitle("Device Info".localized)
             .overlay {
                 if mgr.busy {
                     Color.black.opacity(0.35).ignoresSafeArea()
-                    ProgressView("Fetching device info…")
+                    ProgressView("Fetching device info…".localized)
                         .padding(16)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 if justCopied {
                     VStack {
                         Spacer()
-                        Text("Copied")
+                        Text("Copied".localized)
                             .font(.footnote.weight(.semibold))
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .background(.ultraThinMaterial, in: Capsule())
@@ -236,7 +236,7 @@ struct DeviceInfoView: View {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     if isPaired {
                         Button { mgr.initAndLoad() } label: {
-                            Label("Reload", systemImage: "arrow.clockwise")
+                            Label("Reload".localized, systemImage: "arrow.clockwise")
                         }
 
                         Button {
@@ -244,22 +244,22 @@ struct DeviceInfoView: View {
                                 exportURL = try mgr.exportToCSV()
                                 isShowingExporter = true
                             } catch {
-                                fail("Export Failed", error.localizedDescription)
+                                fail("Export Failed".localized, error.localizedDescription)
                             }
                         } label: {
-                            Label("Export", systemImage: "square.and.arrow.up")
+                            Label("Export".localized, systemImage: "square.and.arrow.up")
                         }
                         .disabled(mgr.entries.isEmpty)
 
                         Menu {
                             Button { copyAllText() } label: {
-                                Label("Copy All (Text)", systemImage: "doc.on.doc")
+                                Label("Copy All (Text)".localized, systemImage: "doc.on.doc")
                             }
                             Button { copyAllCSV() } label: {
-                                Label("Copy All (CSV)", systemImage: "tablecells")
+                                Label("Copy All (CSV)".localized, systemImage: "tablecells")
                             }
                             Button { shareAll() } label: {
-                                Label("Share…", systemImage: "square.and.arrow.up.on.square")
+                                Label("Share…".localized, systemImage: "square.and.arrow.up.on.square")
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
@@ -270,7 +270,7 @@ struct DeviceInfoView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if !isPaired {
                         Button { importer = true } label: {
-                            Label("Import Pairing File", systemImage: "doc.badge.plus")
+                            Label("Import Pairing File".localized, systemImage: "doc.badge.plus")
                         }
                     }
                 }
@@ -283,7 +283,7 @@ struct DeviceInfoView: View {
                 document: CSVDocument(url: exportURL),
                 contentType: .commaSeparatedText,
                 defaultFilename: "DeviceInfo"
-            ) { _ in notify("Export Complete", "Device info exported to CSV") }
+            ) { _ in notify("Export Complete".localized, "Device info exported to CSV".localized) }
             .sheet(isPresented: $showShareSheet) {
                 ActivityViewController(items: shareItems)
             }
@@ -355,10 +355,10 @@ struct DeviceInfoView: View {
     private func importPairing(from src: URL) {
         do {
             try PairingFileStore.importFromPicker(src)
-            notify("Pairing File Added", "Your device is ready. Tap Reload to fetch info.")
+            notify("Pairing File Added".localized, "Your device is ready. Tap Reload to fetch info.".localized)
             mgr.initAndLoad()
         } catch {
-            fail("Import Failed", error.localizedDescription)
+            fail("Import Failed".localized, error.localizedDescription)
         }
     }
 
@@ -397,3 +397,4 @@ private struct ActivityViewController: UIViewControllerRepresentable {
     }
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) { }
 }
+

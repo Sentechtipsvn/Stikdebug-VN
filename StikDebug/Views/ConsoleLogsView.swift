@@ -48,13 +48,13 @@ struct ConsoleLogsView: View {
                     syslogLogsPane
                 }
             }
-            .navigationTitle("Console")
+            .navigationTitle("Console".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Picker("", selection: $selectedConsoleTab) {
-                        Text("App").tag(ConsoleTab.idevice)
-                        Text("System").tag(ConsoleTab.syslog)
+                        Text("App".localized).tag(ConsoleTab.idevice)
+                        Text("System".localized).tag(ConsoleTab.syslog)
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 180)
@@ -62,13 +62,13 @@ struct ConsoleLogsView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         if selectedConsoleTab == .idevice {
-                            Button("Refresh", systemImage: "arrow.clockwise") {
+                            Button("Refresh".localized, systemImage: "arrow.clockwise") {
                                 Task { await loadIdeviceLogsAsync() }
                             }
-                            Button("Clear", systemImage: "trash", role: .destructive) {
+                            Button("Clear".localized, systemImage: "trash", role: .destructive) {
                                 logManager.clearLogs()
                             }
-                            Button("Copy Logs", systemImage: "doc.on.doc") {
+                            Button("Copy Logs".localized, systemImage: "doc.on.doc") {
                                 copyJITLogs()
                             }
                             exportMenuOption
@@ -76,13 +76,13 @@ struct ConsoleLogsView: View {
                             Button(syslogControlLabel, systemImage: syslogControlIcon) {
                                 toggleSyslogPlayback()
                             }
-                            Button("Clear", systemImage: "trash", role: .destructive) {
+                            Button("Clear".localized, systemImage: "trash", role: .destructive) {
                                 systemLogStream.clear()
                             }
-                            Button("Copy Logs", systemImage: "doc.on.doc") {
+                            Button("Copy Logs".localized, systemImage: "doc.on.doc") {
                                 copySyslogToClipboard()
                             }
-                            Button("Adjust Speed", systemImage: "slider.horizontal.3") {
+                            Button("Adjust Speed".localized, systemImage: "slider.horizontal.3") {
                                 showingSyslogSpeedSelector = true
                             }
                         }
@@ -96,15 +96,15 @@ struct ConsoleLogsView: View {
             } message: {
                 Text(alertMessage)
             }
-            .confirmationDialog("Syslog Speed", isPresented: $showingSyslogSpeedSelector) {
+            .confirmationDialog("Syslog Speed".localized, isPresented: $showingSyslogSpeedSelector) {
                 ForEach(syslogIntervalOptions, id: \.self) { option in
                     Button(intervalLabel(for: option)) {
                         systemLogStream.updateInterval = option
                     }
                 }
-                Button("Cancel", role: .cancel) { }
+                Button("Cancel".localized, role: .cancel) { }
             } message: {
-                Text("Choose how quickly new relay entries appear.")
+                Text("Choose how quickly new relay entries appear.".localized)
             }
         }
                 .onDisappear {
@@ -112,7 +112,7 @@ struct ConsoleLogsView: View {
         }
         .onChange(of: systemLogStream.lastError) { _, newError in
             if let error = newError {
-                presentAlert(title: "Syslog Error", message: error)
+                presentAlert(title: "Syslog Error".localized, message: error)
                 systemLogStream.lastError = nil
             }
         }
@@ -191,7 +191,7 @@ struct ConsoleLogsView: View {
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Filter logs", text: $syslogSearchText)
+                TextField("Filter logs".localized, text: $syslogSearchText)
                     .textFieldStyle(.plain)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
@@ -261,7 +261,7 @@ struct ConsoleLogsView: View {
             "[\(formatTime(date: $0.timestamp))] [\($0.type.rawValue)] \($0.message)"
         }.joined(separator: "\n")
         UIPasteboard.general.string = logsContent
-        presentAlert(title: "Logs Copied", message: "Logs have been copied to clipboard.")
+        presentAlert(title: "Logs Copied".localized, message: "Logs have been copied to clipboard.".localized)
     }
 
     @ViewBuilder
@@ -272,11 +272,11 @@ struct ConsoleLogsView: View {
                 item: logURL,
                 preview: SharePreview("idevice_log.txt", image: Image(systemName: "doc.text"))
             ) {
-                Label("Export Logs", systemImage: "square.and.arrow.up")
+                Label("Export Logs".localized, systemImage: "square.and.arrow.up")
             }
         } else {
-            Button("Export Logs", systemImage: "square.and.arrow.up") {
-                presentAlert(title: "Export Failed", message: "No idevice logs found")
+            Button("Export Logs".localized, systemImage: "square.and.arrow.up") {
+                presentAlert(title: "Export Failed".localized, message: "No idevice logs found".localized)
             }
         }
     }
@@ -300,7 +300,7 @@ struct ConsoleLogsView: View {
 
     private func intervalLabel(for value: Double) -> String {
         if value <= 0 {
-            return "Live"
+            return "Live".localized
         }
         return "\(String(format: "%.1f", value))s"
     }
@@ -313,7 +313,7 @@ struct ConsoleLogsView: View {
 
         guard FileManager.default.fileExists(atPath: logPath) else {
             await MainActor.run {
-                logManager.addInfoLog("No idevice logs found (Restart the app to continue reading)")
+                logManager.addInfoLog("No idevice logs found (Restart the app to continue reading)".localized)
                 isLoadingLogs = false
             }
             return
@@ -329,7 +329,7 @@ struct ConsoleLogsView: View {
                 let startIndex = max(0, lines.count - maxLines)
                 let recentLines = lines[startIndex..<lines.count]
 
-                let skipPrefixes = ["=== DEVICE INFORMATION ===", "Version:", "Name:", "Model:", "=== LOG ENTRIES ==="]
+                let skipPrefixes = ["=== DEVICE INFORMATION ===", "Version:".localized, "Name:".localized, "Model:".localized, "=== LOG ENTRIES ==="]
 
                 let parsed = Self.parseAppLogEntries(from: recentLines, skipPrefixes: skipPrefixes)
                 return (parsed, lines.count)
@@ -346,7 +346,7 @@ struct ConsoleLogsView: View {
                     jitScrollView?.scrollTo(last.id, anchor: .bottom)
                 }
             } else {
-                logManager.addErrorLog("Failed to read idevice logs")
+                logManager.addErrorLog("Failed to read idevice logs".localized)
             }
             isLoadingLogs = false
         }
@@ -402,7 +402,7 @@ struct ConsoleLogsView: View {
                     }
                 }
             } else {
-                logManager.addErrorLog("Failed to read new logs")
+                logManager.addErrorLog("Failed to read new logs".localized)
             }
             isLoadingLogs = false
         }
@@ -424,8 +424,8 @@ struct ConsoleLogsView: View {
     private func copySyslogToClipboard() {
         let entries = filteredSyslogEntries
         guard !entries.isEmpty else {
-            let message = syslogSearchText.isEmpty ? "No syslog entries to copy." : "No matching syslog entries to copy."
-            presentAlert(title: "Export Failed", message: message)
+            let message = syslogSearchText.isEmpty ? "No syslog entries to copy.".localized : "No matching syslog entries to copy.".localized
+            presentAlert(title: "Export Failed".localized, message: message)
             return
         }
 
@@ -435,9 +435,9 @@ struct ConsoleLogsView: View {
 
         UIPasteboard.general.string = content
         let message = syslogSearchText.isEmpty
-            ? "Latest syslog entries copied to clipboard."
+            ? "Latest syslog entries copied to clipboard.".localized
             : "\(entries.count) filtered syslog entries copied to clipboard."
-        presentAlert(title: "Logs Copied", message: message)
+        presentAlert(title: "Logs Copied".localized, message: message)
     }
 
     private var syslogControlIcon: String {
@@ -449,9 +449,9 @@ struct ConsoleLogsView: View {
 
     private var syslogControlLabel: String {
         if !systemLogStream.isStreaming {
-            return "Start syslog relay"
+            return "Start syslog relay".localized
         }
-        return systemLogStream.isPaused ? "Resume syslog stream" : "Pause syslog stream"
+        return systemLogStream.isPaused ? "Resume syslog stream".localized : "Pause syslog stream".localized
     }
 
     private func presentAlert(title: String, message: String) {
@@ -636,3 +636,4 @@ private extension LogManager.LogEntry.LogType {
         }
     }
 }
+

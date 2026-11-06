@@ -31,6 +31,7 @@ final class LocationSimulationSession: ObservableObject {
     }
 
     func startRoute(at coordinate: CLLocationCoordinate2D, coordinates: [CLLocationCoordinate2D]) -> UUID {
+        pauseResending()
         let routeID = UUID()
         self.routeID = routeID
         routeCoordinates = coordinates
@@ -66,3 +67,4 @@ final class LocationSimulationSession: ObservableObject {
         BackgroundLocationManager.shared.requestStop()
     }
 }
+

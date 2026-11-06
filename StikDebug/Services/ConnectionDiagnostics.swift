@@ -13,18 +13,18 @@ struct ConnectionDiagnosis: Equatable {
 
     var title: String {
         switch problem {
-        case .pairingFile: return "Pairing file unavailable"
-        case .invalidAddress: return "Invalid target address"
-        case .pairingRejected: return "Pairing file rejected"
-        case .deviceLocked: return "Device is locked"
-        case .developerMode: return "Developer Mode is off"
-        case .developerService: return "Developer service unavailable"
-        case .cellular: return "Enable Airplane Mode"
-        case .networkUnavailable: return "Turn off Airplane Mode"
-        case .noVPN: return "Connect LocalDevVPN"
-        case .vpnUnresponsive: return "Local VPN isn’t responding"
-        case .serviceUnreachable: return "Device isn’t reachable"
-        case .unknown: return "Couldn’t connect to the device"
+        case .pairingFile: return "Pairing file unavailable".localized
+        case .invalidAddress: return "Invalid target address".localized
+        case .pairingRejected: return "Pairing file rejected".localized
+        case .deviceLocked: return "Device is locked".localized
+        case .developerMode: return "Developer Mode is off".localized
+        case .developerService: return "Developer service unavailable".localized
+        case .cellular: return "Enable Airplane Mode".localized
+        case .networkUnavailable: return "Turn off Airplane Mode".localized
+        case .noVPN: return "Connect LocalDevVPN".localized
+        case .vpnUnresponsive: return "Local VPN isn’t responding".localized
+        case .serviceUnreachable: return "Device isn’t reachable".localized
+        case .unknown: return "Couldn’t connect to the device".localized
         }
     }
 
@@ -48,9 +48,9 @@ struct ConnectionDiagnosis: Equatable {
 
     var detectedSummary: String? {
         switch problem {
-        case .cellular: return "Cellular"
-        case .networkUnavailable: return "No Wi-Fi or cellular connection"
-        case .noVPN: return "LocalDevVPN disconnected"
+        case .cellular: return "Cellular".localized
+        case .networkUnavailable: return "No Wi-Fi or cellular connection".localized
+        case .noVPN: return "LocalDevVPN disconnected".localized
         case .unknown: return nil
         default: return title
         }
@@ -60,31 +60,31 @@ struct ConnectionDiagnosis: Equatable {
         switch problem {
         case .pairingFile, .pairingRejected:
             if #available(iOS 27.0, *) {
-                return "Generate and place a new pairing file using Settings → Pair a Device, or iloader."
+                return "Generate and place a new pairing file using Settings → Pair a Device, or iloader.".localized
             }
-            return "Generate and place a new pairing file using iloader."
+            return "Generate and place a new pairing file using iloader.".localized
         case .invalidAddress:
-            return "Check Target Device IP in Settings. Enter an IPv4 address such as 10.7.0.1."
+            return "Check Target Device IP in Settings. Enter an IPv4 address such as 10.7.0.1.".localized
         case .deviceLocked:
-            return "Unlock the target device and try again."
+            return "Unlock the target device and try again.".localized
         case .developerMode:
-            return "Enable Developer Mode in the target device’s Settings → Privacy & Security, then follow its restart instructions."
+            return "Enable Developer Mode in the target device’s Settings → Privacy & Security, then follow its restart instructions.".localized
         case .developerService:
-            return "Check that Developer Mode is enabled. Try reconnecting; if the service is still unavailable, redownload the developer disk image in Settings."
+            return "Check that Developer Mode is enabled. Try reconnecting; if the service is still unavailable, redownload the developer disk image in Settings.".localized
         case .cellular:
-            return "Keep LocalDevVPN connected. Enable Airplane Mode (or just disable Cellular Data), then try again."
+            return "Keep LocalDevVPN connected. Enable Airplane Mode (or just disable Cellular Data), then try again.".localized
         case .networkUnavailable:
-            return "Enable Wi-Fi or Cellular Data, then connect LocalDevVPN."
+            return "Enable Wi-Fi or Cellular Data, then connect LocalDevVPN.".localized
         case .noVPN:
-            return "Connect LocalDevVPN, then return to StikDebug and try again."
+            return "Connect LocalDevVPN, then return to StikDebug and try again.".localized
         case .vpnUnresponsive:
-            return "Reconnect LocalDevVPN, then return to StikDebug and try again."
+            return "Reconnect LocalDevVPN, then return to StikDebug and try again.".localized
         case .serviceUnreachable:
             return isLocal
-                ? "The device’s pairing service isn’t reachable. Check Remote Pairing Port in Settings. If it still fails, restart the device and reconnect LocalDevVPN."
-                : "Check Target Device IP and Remote Pairing Port in Settings, and make sure the target device is reachable on your network."
+                ? "The device’s pairing service isn’t reachable. Check Remote Pairing Port in Settings. If it still fails, restart the device and reconnect LocalDevVPN.".localized
+                : "Check Target Device IP and Remote Pairing Port in Settings, and make sure the target device is reachable on your network.".localized
         case .unknown:
-            return "Unlock the target device and try again. If the error continues, restart the target device."
+            return "Unlock the target device and try again. If the error continues, restart the target device.".localized
         }
     }
 }
@@ -154,7 +154,7 @@ enum ConnectionDiagnostics {
     static func connectedNotice(targetIP: String, conditions: NetworkConditions?) -> String? {
         guard targetIP == DeviceConnectionContext.defaultTargetIPAddress,
               let conditions, !conditions.wifi, !conditions.cellular else { return nil }
-        return "Connected without Wi-Fi or cellular. You can now enable Cellular Data, and the tunnel will remain connected."
+        return "Connected without Wi-Fi or cellular. You can now enable Cellular Data, and the tunnel will remain connected.".localized
     }
 
     static func networkConditions() -> NetworkConditions? {
@@ -253,3 +253,4 @@ enum ConnectionDiagnostics {
         return queue.sync { reachable }
     }
 }
+

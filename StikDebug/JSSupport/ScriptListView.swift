@@ -45,7 +45,7 @@ struct ScriptListView: View {
                         Button {
                             onSelectScript?(nil)
                         } label: {
-                            Label("No Script", systemImage: "nosign")
+                            Label("No Script".localized, systemImage: "nosign")
                         }
                     }
                 }
@@ -54,11 +54,11 @@ struct ScriptListView: View {
                     Section {
                         VStack(alignment: .leading, spacing: 4) {
                             Label(
-                                isPickerMode ? "No scripts available" : "No scripts found",
+                                isPickerMode ? "No scripts available".localized : "No scripts found".localized,
                                 systemImage: "doc.text.magnifyingglass"
                             )
                             .foregroundStyle(.secondary)
-                            Text(isPickerMode ? "Import a file or choose None." : "Tap New or Import to get started.")
+                            Text(isPickerMode ? "Import a file or choose None.".localized : "Tap New or Import to get started.".localized)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -73,25 +73,25 @@ struct ScriptListView: View {
                                         Button(role: .destructive) {
                                             pendingDelete = script
                                             showDeleteConfirmation = true
-                                        } label: { Label("Delete", systemImage: "trash") }
+                                        } label: { Label("Delete".localized, systemImage: "trash") }
                                     }
                                 }
                                 .contextMenu {
                                     Button { copyName(script) } label: {
-                                        Label("Copy Filename", systemImage: "doc.on.doc")
+                                        Label("Copy Filename".localized, systemImage: "doc.on.doc")
                                     }
                                     Button { copyPath(script) } label: {
-                                        Label("Copy Path", systemImage: "folder")
+                                        Label("Copy Path".localized, systemImage: "folder")
                                     }
                                     if !isPickerMode {
                                         Button { saveDefaultScript(script) } label: {
-                                            Label("Set Default", systemImage: "star")
+                                            Label("Set Default".localized, systemImage: "star")
                                         }
                                         Divider()
                                         Button(role: .destructive) {
                                             pendingDelete = script
                                             showDeleteConfirmation = true
-                                        } label: { Label("Delete", systemImage: "trash") }
+                                        } label: { Label("Delete".localized, systemImage: "trash") }
                                     }
                                 }
                         }
@@ -102,32 +102,32 @@ struct ScriptListView: View {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search scripts…"
+                prompt: "Search scripts…".localized
             )
-            .navigationTitle(isPickerMode ? "Choose Script" : "Scripts")
+            .navigationTitle(isPickerMode ? "Choose Script".localized : "Scripts".localized)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     if !isPickerMode {
                         Button { showNewFileAlert = true } label: {
-                            Label("New", systemImage: "doc.badge.plus")
+                            Label("New".localized, systemImage: "doc.badge.plus")
                         }
                         Button { showImporter = true } label: {
-                            Label("Import", systemImage: "tray.and.arrow.down")
+                            Label("Import".localized, systemImage: "tray.and.arrow.down")
                         }
                     }
                 }
             }
             .onAppear(perform: loadScripts)
-            .alert("New Script", isPresented: $showNewFileAlert) {
-                TextField("Filename", text: $newFileName)
-                Button("Create", action: createNewScript)
-                Button("Cancel", role: .cancel) { }
+            .alert("New Script".localized, isPresented: $showNewFileAlert) {
+                TextField("Filename".localized, text: $newFileName)
+                Button("Create".localized, action: createNewScript)
+                Button("Cancel".localized, role: .cancel) { }
             }
-            .alert("Delete Script?", isPresented: $showDeleteConfirmation, presenting: pendingDelete) { script in
-                Button("Delete", role: .destructive) { deleteScript(script) }
-                Button("Cancel", role: .cancel) { pendingDelete = nil }
+            .alert("Delete Script?".localized, isPresented: $showDeleteConfirmation, presenting: pendingDelete) { script in
+                Button("Delete".localized, role: .destructive) { deleteScript(script) }
+                Button("Cancel".localized, role: .cancel) { pendingDelete = nil }
             } message: { script in
-                Text("Delete \(script.lastPathComponent)? This cannot be undone.")
+                Text("Xóa \(script.lastPathComponent)? Không thể hoàn tác thao tác này.")
             }
             .fileImporter(
                 isPresented: $showImporter,
@@ -135,21 +135,21 @@ struct ScriptListView: View {
             ) { result in
                 switch result {
                 case .success(let fileURL): importScript(from: fileURL)
-                case .failure(let error): presentError(title: "Import Failed", message: error.localizedDescription)
+                case .failure(let error): presentError(title: "Import Failed".localized, message: error.localizedDescription)
                 }
             }
         }
                 .overlay {
             if isBusy {
                 Color.black.opacity(0.35).ignoresSafeArea()
-                ProgressView("Working…")
+                ProgressView("Working…".localized)
                     .padding(16)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             if justCopied {
                 VStack {
                     Spacer()
-                    Text("Copied")
+                    Text("Copied".localized)
                         .font(.footnote.weight(.semibold))
                         .padding(.horizontal, 14).padding(.vertical, 10)
                         .background(.ultraThinMaterial, in: Capsule())
@@ -212,13 +212,13 @@ struct ScriptListView: View {
                 .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
         } catch {
             scripts = []
-            presentError(title: "Unable to Load Scripts", message: error.localizedDescription)
+            presentError(title: "Unable to Load Scripts".localized, message: error.localizedDescription)
         }
     }
 
     private func saveDefaultScript(_ url: URL) {
         defaultScriptName = url.lastPathComponent
-        presentSuccess(title: "Default Script Set", message: url.lastPathComponent)
+        presentSuccess(title: "Default Script Set".localized, message: url.lastPathComponent)
     }
 
     private func createNewScript() {
@@ -226,21 +226,21 @@ struct ScriptListView: View {
         var filename = newFileName.trimmingCharacters(in: .whitespacesAndNewlines)
         if !filename.hasSuffix(".js") { filename += ".js" }
         guard let filename = ScriptStore.normalizedScriptFileName(filename) else {
-            presentError(title: "Failed to Create New Script", message: "Use a simple .js filename without folders.")
+            presentError(title: "Failed to Create New Script".localized, message: "Use a simple .js filename without folders.".localized)
             return
         }
         do {
             let newURL = try ScriptStore.scriptURL(named: filename)
             guard !FileManager.default.fileExists(atPath: newURL.path) else {
-                presentError(title: "Failed to Create New Script", message: "A script with the same name already exists.")
+                presentError(title: "Failed to Create New Script".localized, message: "A script with the same name already exists.".localized)
                 return
             }
             try "".write(to: newURL, atomically: true, encoding: .utf8)
             newFileName = ""
             loadScripts()
-            presentSuccess(title: "Created", message: filename)
+            presentSuccess(title: "Created".localized, message: filename)
         } catch {
-            presentError(title: "Error Creating File", message: error.localizedDescription)
+            presentError(title: "Error Creating File".localized, message: error.localizedDescription)
         }
     }
 
@@ -252,7 +252,7 @@ struct ScriptListView: View {
             }
             loadScripts()
         } catch {
-            presentError(title: "Delete Failed", message: error.localizedDescription)
+            presentError(title: "Delete Failed".localized, message: error.localizedDescription)
         }
     }
 
@@ -278,11 +278,11 @@ struct ScriptListView: View {
                 try FileManager.default.copyItem(at: fileURL, to: dest)
                 DispatchQueue.main.async {
                     self.loadScripts()
-                    self.presentSuccess(title: "Imported", message: fileName)
+                    self.presentSuccess(title: "Imported".localized, message: fileName)
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.presentError(title: "Import Failed", message: error.localizedDescription)
+                    self.presentError(title: "Import Failed".localized, message: error.localizedDescription)
                 }
             }
         }
@@ -317,3 +317,4 @@ struct ScriptListView: View {
         }
     }
 }
+

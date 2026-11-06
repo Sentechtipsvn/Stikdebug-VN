@@ -44,34 +44,34 @@ enum HomeExternalAction: Identifiable {
     var title: String {
         switch self {
         case .enableJIT:
-            return "Enable JIT?"
+            return "Enable JIT?".localized
         case .killProcess:
-            return "Kill Process?"
+            return "Kill Process?".localized
         case .launchApp:
-            return "Launch App?"
+            return "Launch App?".localized
         }
     }
 
     var message: String {
         switch self {
         case .enableJIT(let configuration):
-            let scriptText = configuration.scriptData == nil ? "" : " and run a script"
-            return "An external link wants to enable JIT\(scriptText) for \(targetDescription(for: configuration))."
+            let scriptText = configuration.scriptData == nil ? "" : " and run a script".localized
+            return "Một liên kết bên ngoài yêu cầu bật JIT\(scriptText) cho \(targetDescription(for: configuration))."
         case .killProcess(let target):
-            return "An external link wants to kill process \(target.description)."
+            return "Một liên kết bên ngoài yêu cầu kết thúc tiến trình \(target.description)."
         case .launchApp(let bundleID):
-            return "An external link wants to launch \(bundleID)."
+            return "Một liên kết bên ngoài yêu cầu mở \(bundleID)."
         }
     }
 
     var confirmationTitle: String {
         switch self {
         case .enableJIT(let configuration):
-            return configuration.scriptData == nil ? "Enable JIT" : "Enable and Run Script"
+            return configuration.scriptData == nil ? "Enable JIT".localized : "Enable and Run Script".localized
         case .killProcess:
-            return "Kill Process"
+            return "Kill Process".localized
         case .launchApp:
-            return "Launch App"
+            return "Launch App".localized
         }
     }
 
@@ -91,8 +91,9 @@ enum HomeExternalAction: Identifiable {
             return bundleID
         }
         if let pid = configuration.pid {
-            return "process \(pid)"
+            return "tiến trình \(pid)"
         }
-        return "the requested app"
+        return "the requested app".localized
     }
 }
+

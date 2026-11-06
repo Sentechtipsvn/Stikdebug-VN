@@ -49,7 +49,7 @@ class Profile: ObservableObject {
             if let expirationDate {
                 return Profile.dateFormatter.string(from: expirationDate)
             } else {
-                return "Unknown"
+                return "Unknown".localized
             }
         }
     }
@@ -140,13 +140,13 @@ struct ProfileView: View {
                     Section {
                         HStack {
                             Spacer()
-                            ProgressView("Loading...")
+                            ProgressView("Loading...".localized)
                             Spacer()
                         }
                     }
                 } else if entries.isEmpty && notMatchedProfiles.isEmpty {
                     Section {
-                        Text("No profiles found.")
+                        Text("No profiles found.".localized)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -165,7 +165,7 @@ struct ProfileView: View {
                             } else {
                                 HStack {
                                     Image(systemName: "exclamationmark.triangle")
-                                    Text("No matching profile")
+                                    Text("No matching profile".localized)
                                 }
                                 .font(.subheadline)
                                 .foregroundColor(.refreshRed)
@@ -203,7 +203,7 @@ struct ProfileView: View {
                                         else { expandedApps.insert(entry.id) }
                                     }
                                 } label: {
-                                    Label(showMore ? "Hide older profiles" : "Show \(extraProfiles.count) older profiles",
+                                    Label(showMore ? "Hide older profiles".localized : "Hiện \(extraProfiles.count) hồ sơ cũ",
                                           systemImage: showMore ? "chevron.up" : "chevron.down")
                                         .font(.caption)
                                         .foregroundStyle(.blue)
@@ -216,7 +216,7 @@ struct ProfileView: View {
                 }
                 
                 if !notMatchedProfiles.isEmpty {
-                    Section("Other Profiles") {
+                    Section("Other Profiles".localized) {
                         ForEach(notMatchedProfiles) { entry in
                             VStack(alignment: .leading) {
                                 Text(entry.id)
@@ -232,19 +232,19 @@ struct ProfileView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("App Expiry")
+            .navigationTitle("App Expiry".localized)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
                         isImporterPresented = true
                     } label: {
-                        Label("Add", systemImage: "plus")
+                        Label("Add".localized, systemImage: "plus")
                     }
                     
                     Button {
                         Task { await loadData(force: true) }
                     } label: {
-                        Label("Reload", systemImage: "arrow.clockwise")
+                        Label("Reload".localized, systemImage: "arrow.clockwise")
                     }
                     
                 }
@@ -276,13 +276,13 @@ struct ProfileView: View {
         } message: {
             Text(alertMsg)
         }
-        .alert("Confirm Removal", isPresented: $confirmRemove) {
-            Button("Remove", role: .destructive) {
+        .alert("Confirm Removal".localized, isPresented: $confirmRemove) {
+            Button("Remove".localized, role: .destructive) {
                 Task { await removeProfile(uuid: removeTargetUUID) }
             }
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel".localized, role: .cancel) { }
         } message: {
-            Text("Remove profile for \(removeTargetName) (UUID: \(removeTargetUUID))?\nApps associated with this profile may become unavailable.")
+            Text("Xóa hồ sơ của \(removeTargetName) (UUID: \(removeTargetUUID))?\nCác ứng dụng dùng hồ sơ này có thể không mở được.")
         }
     }
     
@@ -309,7 +309,7 @@ struct ProfileView: View {
     private func profileRow(match: ProfileMatch, isMostRecent: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(isMostRecent ? "Most Recent Profile" : "Profile")
+                Text(isMostRecent ? "Most Recent Profile".localized : "Profile".localized)
                     .font(.subheadline.bold())
                     .foregroundStyle(.primary)
                 Spacer()
@@ -339,7 +339,7 @@ struct ProfileView: View {
             }
             if !match.missingEntitlements.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Missing entitlements:")
+                    Text("Missing entitlements:".localized)
                         .font(.caption)
                         .foregroundColor(.refreshRed)
                     ForEach(Array(formattedMissingLines(from: match.missingEntitlements).enumerated()), id: \.offset) { _, line in
@@ -377,7 +377,7 @@ struct ProfileView: View {
             let validProfiles = profiles.filter { $0.decodeError == nil }
 
             if !failedProfiles.isEmpty {
-                let errors = failedProfiles.map { $0.decodeError ?? "Unknown error" }
+                let errors = failedProfiles.map { $0.decodeError ?? "Unknown error".localized }
                 let uniqueErrors = Array(Set(errors))
                 await MainActor.run {
                     alertTitle = "Failed to Decode \(failedProfiles.count) Profile\(failedProfiles.count == 1 ? "" : "s")"
@@ -415,7 +415,7 @@ struct ProfileView: View {
             }
         } catch {
             await MainActor.run {
-                alertTitle = "Failed to load"
+                alertTitle = "Failed to load".localized
                 alertMsg = error.localizedDescription
                 alertSuccess = false
                 alert = true
@@ -545,15 +545,15 @@ struct ProfileView: View {
         working = true
         do {
             try JITEnableContext.shared.removeProfile(withUUID: uuid)
-            alertMsg = "Profile removed successfully"
-            alertTitle = "Success"
+            alertMsg = "Profile removed successfully".localized
+            alertTitle = "Success".localized
             alertSuccess = true
             alert = true
             // Reload profiles after removal
             await loadData(force: true)
         } catch {
             alertMsg = error.localizedDescription
-            alertTitle = "Failed to Remove Profile"
+            alertTitle = "Failed to Remove Profile".localized
             alertSuccess = false
             alert = true
         }
@@ -565,7 +565,7 @@ struct ProfileView: View {
         do {
             let fileURL = try result.get().first
             guard let fileURL = fileURL else {
-                throw NSError(domain: "ProfileView", code: -1, userInfo: [NSLocalizedDescriptionKey: "No file selected"])
+                throw NSError(domain: "ProfileView", code: -1, userInfo: [NSLocalizedDescriptionKey: "No file selected".localized])
             }
             
             // Start accessing security-scoped resource
@@ -579,8 +579,8 @@ struct ProfileView: View {
             let profileData = try Data(contentsOf: fileURL)
             try JITEnableContext.shared.addProfile(profileData)
             
-            alertMsg = "Profile added successfully"
-            alertTitle = "Success"
+            alertMsg = "Profile added successfully".localized
+            alertTitle = "Success".localized
             alertSuccess = true
             alert = true
             
@@ -588,7 +588,7 @@ struct ProfileView: View {
             await loadData(force: true)
         } catch {
             alertMsg = error.localizedDescription
-            alertTitle = "Failed to Add Profile"
+            alertTitle = "Failed to Add Profile".localized
             alertSuccess = false
             alert = true
         }
@@ -681,3 +681,4 @@ private struct AppProfileStatus: Identifiable {
         self.entitlements = [:]
     }
 }
+

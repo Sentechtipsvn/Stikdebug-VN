@@ -8,16 +8,16 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.stik.stikdebug.enableJIT</string>
+			<string>com.sentechtipsvn.stikdebugvn</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>stikdebug</string>
-				<string>stikjit</string>
+				<string>stikdebugvn</string>
+				<string>stikjitvn</string>
 			</array>
 		</dict>
 	</array>
-		<key>NSLocalNetworkUsageDescription</key>
-	<string>StikDebug discovers this iPhone's Remote Pairing service to enable JIT.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>StikDebug VN cần truy cập mạng cục bộ để kết nối với thiết bị.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_remotepairing._tcp</string>
@@ -56,6 +56,15 @@
 				</array>
 			</dict>
 		</dict>
+	</array>
+	<key>CFBundleDisplayName</key>
+	<string>StikDebug VN</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>vi</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>vi</string>
+		<string>en</string>
 	</array>
 </dict>
 </plist>

@@ -132,19 +132,19 @@ struct RunningProcessQuery: EntityStringQuery {
 // MARK: - Enable JIT Intent
 
 struct EnableJITIntent: AppIntent, ForegroundContinuableIntent {
-    static var title: LocalizedStringResource = "Enable JIT"
+    static var title: LocalizedStringResource = "Bật JIT"
     static var description = IntentDescription(
-        "Enables JIT compilation for an installed app using StikDebug.",
+        "Bật JIT cho ứng dụng đã cài bằng StikDebug VN.",
         categoryName: "StikDebug"
     )
     static var openAppWhenRun: Bool = true
 
-    @Parameter(title: "App", description: "The app to enable JIT for",
-               requestValueDialog: "Which app would you like to enable JIT for?")
+    @Parameter(title: "Ứng dụng", description: "Ứng dụng cần bật JIT",
+               requestValueDialog: "Chọn ứng dụng cần bật JIT.")
     var app: InstalledAppEntity?
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Enable JIT for \(\.$app)")
+        Summary("Bật JIT cho \(\.$app)")
     }
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
@@ -206,18 +206,18 @@ struct EnableJITIntent: AppIntent, ForegroundContinuableIntent {
 // MARK: - Kill Process Intent
 
 struct KillProcessIntent: AppIntent {
-    static var title: LocalizedStringResource = "Kill Process"
+    static var title: LocalizedStringResource = "Kết thúc tiến trình"
     static var description = IntentDescription(
         "Terminates a running process on the device using StikDebug.",
         categoryName: "StikDebug"
     )
     static var openAppWhenRun: Bool = false
 
-    @Parameter(title: "Process", description: "The process to terminate",
-               requestValueDialog: "Which process would you like to kill?")
+    @Parameter(title: "Tiến trình", description: "Tiến trình cần kết thúc",
+               requestValueDialog: "Chọn tiến trình cần kết thúc.")
     var process: RunningProcessEntity?
 
-    @Parameter(title: "Process ID", description: "A specific PID to kill instead of selecting a process")
+    @Parameter(title: "Mã tiến trình", description: "Nhập PID cụ thể thay cho chọn một tiến trình")
     var pid: Int?
 
     static var parameterSummary: some ParameterSummary {
@@ -252,7 +252,7 @@ struct KillProcessIntent: AppIntent {
             LogManager.shared.addInfoLog("Killed \(targetName) via Shortcut")
             return .result(value: "Successfully killed \(targetName).")
         } else {
-            let reason = err?.localizedDescription ?? "Unknown error"
+            let reason = err?.localizedDescription ?? "Lỗi không xác định"
             LogManager.shared.addErrorLog("Failed to kill \(targetName) via Shortcut: \(reason)")
             return .result(value: "Failed to kill \(targetName): \(reason)")
         }
@@ -266,15 +266,15 @@ struct StikDebugShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: EnableJITIntent(),
             phrases: [
-                "Enable JIT for \(\.$app) with \(.applicationName)",
-                "Enable JIT for \(\.$app) using \(.applicationName)",
-                "Enable JIT for \(\.$app) in \(.applicationName)",
+                "Bật JIT cho \(\.$app) with \(.applicationName)",
+                "Bật JIT cho \(\.$app) using \(.applicationName)",
+                "Bật JIT cho \(\.$app) in \(.applicationName)",
                 "\(.applicationName) enable JIT for \(\.$app)",
                 "\(.applicationName) enable JIT",
                 "Use \(.applicationName) to enable JIT for \(\.$app)",
                 "Use \(.applicationName) to enable JIT"
             ],
-            shortTitle: "Enable JIT",
+            shortTitle: "Bật JIT",
             systemImageName: "bolt.fill"
         )
         AppShortcut(
@@ -288,7 +288,7 @@ struct StikDebugShortcuts: AppShortcutsProvider {
                 "Use \(.applicationName) to kill \(\.$process)",
                 "Use \(.applicationName) to stop \(\.$process)"
             ],
-            shortTitle: "Kill Process",
+            shortTitle: "Kết thúc tiến trình",
             systemImageName: "xmark.circle.fill"
         )
     }
@@ -303,3 +303,4 @@ func ensureTunnel() async {
     }
     try? await Task.sleep(nanoseconds: 1_000_000_000)
 }
+

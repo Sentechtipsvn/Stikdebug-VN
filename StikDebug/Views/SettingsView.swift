@@ -7,7 +7,7 @@ import SwiftUI
 import UIKit
 
 private enum SettingsLinks {
-    static let githubStars = URL(string: "https://github.com/StikDebug/StikDebug")!
+    static let githubStars = URL(string: "https://github.com/dammeiosvn/Stikdebug-VN")!
     static let pairingFileGuide = URL(string: "https://github.com/StikDebug/StikDebug/blob/main/PAIRING.md")!
     static let discord = URL(string: "https://discord.gg/qahjXNTDwS")!
 }
@@ -30,7 +30,7 @@ struct SettingsView: View {
     @FocusState private var focusedConnectionField: ConnectionField?
     @State private var targetDeviceIPInput = ""
     @State private var remotePairingPortInput = ""
-    @State private var automaticPortPlaceholder = "Discovering…"
+    @State private var automaticPortPlaceholder = "Discovering…".localized
     @State private var isShowingPairingFilePicker = false
     @State private var isImportingFile = false
     @State private var pairingImportMessage: (text: String, isError: Bool)?
@@ -56,7 +56,7 @@ struct SettingsView: View {
                                 .resizable().aspectRatio(contentMode: .fit)
                                 .frame(width: 80, height: 80)
                                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            Text("StikDebug").font(.title2.weight(.semibold))
+                            Text("StikDebug VN").font(.title2.weight(.semibold))
                         }
                         Spacer()
                     }
@@ -66,21 +66,21 @@ struct SettingsView: View {
 
                 Section {
                     Link(destination: SettingsLinks.githubStars) {
-                        Label("Star on GitHub", systemImage: "star")
+                        Label("Star on GitHub".localized, systemImage: "star")
                     }
                 }
 
-                Section("Pairing File") {
+                Section("Pairing File".localized) {
                     NavigationLink {
                         OnDevicePairingView(service: onDevicePairing)
                     } label: {
-                        Label("Pair a Device", systemImage: "iphone.and.arrow.forward")
+                        Label("Pair a Device".localized, systemImage: "iphone.and.arrow.forward")
                     }
 
                     Button {
                         isShowingPairingFilePicker = true
                     } label: {
-                        Label("Import Pairing File", systemImage: "doc.badge.plus")
+                        Label("Import Pairing File".localized, systemImage: "doc.badge.plus")
                     }
                     .disabled(isImportingFile)
 
@@ -88,7 +88,7 @@ struct SettingsView: View {
                         HStack(spacing: 10) {
                             ProgressView()
                                 .controlSize(.small)
-                            Text("Importing pairing file…")
+                            Text("Importing pairing file…".localized)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -105,8 +105,8 @@ struct SettingsView: View {
                 Section {
                     Toggle(isOn: $keepAliveAudio) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Silent Audio")
-                            Text("Plays inaudible audio so iOS keeps the app running.")
+                            Text("Silent Audio".localized)
+                            Text("Plays inaudible audio so iOS keeps the app running.".localized)
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -116,8 +116,8 @@ struct SettingsView: View {
 
                     Toggle(isOn: $keepAliveLocation) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Background Location")
-                            Text("Uses low-accuracy location to stay alive when an activity needs it.")
+                            Text("Background Location".localized)
+                            Text("Uses low-accuracy location to stay alive when an activity needs it.".localized)
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -126,40 +126,40 @@ struct SettingsView: View {
                     }
 
                 } header: {
-                    Text("Background Keep-Alive")
+                    Text("Background Keep-Alive".localized)
                 }
 
-                Section("Behavior") {
+                Section("Behavior".localized) {
                     Toggle(isOn: $confirmExternalJITRequests) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Confirm JIT Links")
-                            Text("Ask before external links enable JIT or run scripts.")
+                            Text("Confirm JIT Links".localized)
+                            Text("Ask before external links enable JIT or run scripts.".localized)
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
 
                     Toggle(isOn: $overrideTXMDetection) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Always Run Scripts")
-                            Text("Treats device as TXM-capable to bypass hardware checks.")
+                            Text("Always Run Scripts".localized)
+                            Text("Treats device as TXM-capable to bypass hardware checks.".localized)
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
 
-                Section("Debugging") {
+                Section("Debugging".localized) {
                     Toggle(isOn: $mallocDebug) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Malloc Debugging")
-                            Text("Attaches processes with MallocGuardEdges and MallocScribble to detect memory corruption.")
+                            Text("Malloc Debugging".localized)
+                            Text("Attaches processes with MallocGuardEdges and MallocScribble to detect memory corruption.".localized)
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
 
-                Section("Advanced") {
+                Section("Advanced".localized) {
                     HStack {
-                        Text("Target Device IP")
+                        Text("Target Device IP".localized)
                         Spacer()
                         TextField(DeviceConnectionContext.defaultTargetIPAddress, text: $targetDeviceIPInput)
                             .multilineTextAlignment(.trailing)
@@ -171,7 +171,7 @@ struct SettingsView: View {
                             .frame(maxWidth: 160)
                     }
                     HStack {
-                        Text("Remote Pairing Port")
+                        Text("Remote Pairing Port".localized)
                         Spacer()
                         TextField(automaticPortPlaceholder, text: $remotePairingPortInput)
                             .multilineTextAlignment(.trailing)
@@ -181,10 +181,10 @@ struct SettingsView: View {
                             .frame(maxWidth: 160)
                     }
                     Button { openAppFolder() } label: {
-                        Label("App Folder", systemImage: "folder")
+                        Label("App Folder".localized, systemImage: "folder")
                     }.foregroundStyle(.primary)
                     Button { showDDIConfirmation = true } label: {
-                        Label("Redownload DDI", systemImage: "arrow.down.circle")
+                        Label("Redownload DDI".localized, systemImage: "arrow.down.circle")
                     }.foregroundStyle(.primary).disabled(isRedownloadingDDI)
                     if isRedownloadingDDI {
                         VStack(alignment: .leading, spacing: 4) {
@@ -196,15 +196,20 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Help") {
+                Section {
+                    Text("Bản Việt hóa và nâng cấp: © Sentechtipsvn").font(.footnote)
+                    Link("Mã nguồn gốc · StikDebug / AGPL-3.0", destination: URL(string: "https://github.com/StikDebug/StikDebug")!)
+                }
+
+                Section("Help".localized) {
                     Link(destination: SettingsLinks.pairingFileGuide) {
-                        Label("Pairing File Guide", systemImage: "questionmark.circle")
+                        Label("Pairing File Guide".localized, systemImage: "questionmark.circle")
                     }
                     Button(action: connectLocalDevVPN) {
-                        Label("Connect LocalDevVPN", systemImage: "network")
+                        Label("Connect LocalDevVPN".localized, systemImage: "network")
                     }
                     Link(destination: SettingsLinks.discord) {
-                        Label("Discord Support", systemImage: "bubble.left.and.bubble.right")
+                        Label("Discord Support".localized, systemImage: "bubble.left.and.bubble.right")
                     }
                 }
 
@@ -215,7 +220,7 @@ struct SettingsView: View {
                         .listRowBackground(Color.clear)
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle("Settings".localized)
             .background(KeyboardTapDismissal())
             .scrollDismissesKeyboard(.interactively)
         }
@@ -224,7 +229,7 @@ struct SettingsView: View {
             remotePairingPortInput = remotePairingPortOverride
         }
         .task(id: targetDeviceIP) {
-            automaticPortPlaceholder = "Discovering…"
+            automaticPortPlaceholder = "Discovering…".localized
             let result = await Task.detached {
                 RemotePairingPortResolver.discover()
             }.value
@@ -257,27 +262,27 @@ struct SettingsView: View {
                 do {
                     try PairingFileStore.importFromPicker(url, fileManager: fileManager)
                     isImportingFile = false
-                    pairingImportMessage = ("Imported successfully", false)
+                    pairingImportMessage = ("Imported successfully".localized, false)
                     startTunnelInBackground()
                     schedulePairingStatusDismiss()
                 } catch {
                     isImportingFile = false
-                    pairingImportMessage = ("Import failed: \(error.localizedDescription)", true)
+                    pairingImportMessage = ("Nhập thất bại: \(error.localizedDescription)", true)
                     schedulePairingStatusDismiss()
                 }
             case .failure(let error):
                 isImportingFile = false
-                pairingImportMessage = ("Import failed: \(error.localizedDescription)", true)
+                pairingImportMessage = ("Nhập thất bại: \(error.localizedDescription)", true)
                 schedulePairingStatusDismiss()
             }
         }
-        .confirmationDialog("Redownload DDI Files?", isPresented: $showDDIConfirmation, titleVisibility: .visible) {
-            Button("Redownload", role: .destructive) {
+        .confirmationDialog("Redownload DDI Files?".localized, isPresented: $showDDIConfirmation, titleVisibility: .visible) {
+            Button("Redownload".localized, role: .destructive) {
                 redownloadDDIPressed()
             }
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel".localized, role: .cancel) { }
         } message: {
-            Text("Existing DDI files will be removed before downloading fresh copies.")
+            Text("Existing DDI files will be removed before downloading fresh copies.".localized)
         }
     }
 
@@ -294,11 +299,11 @@ struct SettingsView: View {
         let processInfo = ProcessInfo.processInfo
         let txmLabel: String
         if processInfo.isTXMOverridden {
-            txmLabel = "TXM (Override)"
+            txmLabel = "TXM (Override)".localized
         } else {
-            txmLabel = processInfo.hasTXM ? "TXM" : "Non TXM"
+            txmLabel = processInfo.hasTXM ? "TXM" : "Non TXM".localized
         }
-        return "Version \(appVersion) • iOS \(UIDevice.current.systemVersion) • \(txmLabel)"
+        return "VN beta 1 · Phiên bản \(appVersion) • iOS \(UIDevice.current.systemVersion) • \(txmLabel)"
     }
 
     private func handleAudioKeepAliveChange(_ enabled: Bool) {
@@ -336,7 +341,7 @@ struct SettingsView: View {
             await MainActor.run {
                 isRedownloadingDDI = true
                 ddiDownloadProgress = 0
-                ddiStatusMessage = "Preparing download…"
+                ddiStatusMessage = "Preparing download…".localized
                 ddiResultMessage = nil
             }
             do {
@@ -348,12 +353,12 @@ struct SettingsView: View {
                 }
                 await MainActor.run {
                     isRedownloadingDDI = false
-                    ddiResultMessage = ("DDI files refreshed successfully.", false)
+                    ddiResultMessage = ("DDI files refreshed successfully.".localized, false)
                 }
             } catch {
                 await MainActor.run {
                     isRedownloadingDDI = false
-                    ddiResultMessage = ("Failed to redownload DDI files: \(error.localizedDescription)", true)
+                    ddiResultMessage = ("Không tải lại được DDI: \(error.localizedDescription)", true)
                 }
             }
         }
@@ -430,7 +435,7 @@ private struct KeyboardTapDismissal: UIViewRepresentable {
 func connectLocalDevVPN() {
     let callbackScheme = ProcessInfo.processInfo.environment["LC_HOME_PATH"] != nil
         ? "livecontainer"
-        : "stikdebug"
+        : "stikdebugvn"
     guard let url = URL(string: "localdevvpn://enable?scheme=\(callbackScheme)") else { return }
     UIApplication.shared.open(url, options: [:]) { opened in
         if !opened {
@@ -440,3 +445,4 @@ func connectLocalDevVPN() {
         }
     }
 }
+

@@ -15,11 +15,11 @@ struct ProcessInspectorView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Process Inspector")
+                .navigationTitle("Process Inspector".localized)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: viewModel.refresh) {
-                            Label("Refresh", systemImage: "arrow.clockwise")
+                            Label("Refresh".localized, systemImage: "arrow.clockwise")
                         }
                         .disabled(viewModel.isRefreshing)
                     }
@@ -38,7 +38,7 @@ struct ProcessInspectorView: View {
             Text(viewModel.actionAlertMessage)
         }
         .alert(viewModel.errorAlertTitle, isPresented: $viewModel.showErrorAlert) {
-            Button("Try Again") { viewModel.refresh() }
+            Button("Try Again".localized) { viewModel.refresh() }
             Button("OK", role: .cancel) { }
         } message: {
             Text(viewModel.errorAlertMessage)
@@ -48,15 +48,15 @@ struct ProcessInspectorView: View {
     @ViewBuilder
     private var content: some View {
         List {
-            Section("Overview") {
-                LabeledContent("Total Processes") {
+            Section("Overview".localized) {
+                LabeledContent("Total Processes".localized) {
                     Text("\(viewModel.processes.count)")
                         .font(.title2.bold())
                 }
             }
-            Section("Processes") {
+            Section("Processes".localized) {
                 if viewModel.filteredProcesses.isEmpty {
-                    Text("No matching processes.")
+                    Text("No matching processes.".localized)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -122,11 +122,11 @@ enum ProcessControlAction: String {
     var buttonLabel: String {
         switch self {
         case .resume:
-            return "Resume"
+            return "Resume".localized
         case .pause:
-            return "Pause"
+            return "Pause".localized
         case .kill:
-            return "Kill"
+            return "Kill".localized
         }
     }
 
@@ -155,66 +155,66 @@ enum ProcessControlAction: String {
     var progressTitle: String {
         switch self {
         case .resume:
-            return "Resuming Process"
+            return "Resuming Process".localized
         case .pause:
-            return "Pausing Process"
+            return "Pausing Process".localized
         case .kill:
-            return "Terminating Process"
+            return "Terminating Process".localized
         }
     }
 
     var timeoutTitle: String {
         switch self {
         case .resume:
-            return "Resume Timed Out"
+            return "Resume Timed Out".localized
         case .pause:
-            return "Pause Timed Out"
+            return "Pause Timed Out".localized
         case .kill:
-            return "Kill Timed Out"
+            return "Kill Timed Out".localized
         }
     }
 
     var failureTitle: String {
         switch self {
         case .resume:
-            return "Resume Failed"
+            return "Resume Failed".localized
         case .pause:
-            return "Pause Failed"
+            return "Pause Failed".localized
         case .kill:
-            return "Kill Failed"
+            return "Kill Failed".localized
         }
     }
 
     var successTitle: String {
         switch self {
         case .resume:
-            return "Process Resumed"
+            return "Process Resumed".localized
         case .pause:
-            return "Process Paused"
+            return "Process Paused".localized
         case .kill:
-            return "Process Terminated"
+            return "Process Terminated".localized
         }
     }
 
     func successMessage(for pid: Int) -> String {
         switch self {
         case .resume:
-            return "Sent SIGCONT (19) to PID \(pid)."
+            return "Đã gửi SIGCONT (19) đến PID \(pid)."
         case .pause:
-            return "Sent SIGSTOP (17) to PID \(pid)."
+            return "Đã gửi SIGSTOP (17) đến PID \(pid)."
         case .kill:
-            return "PID \(pid) was terminated."
+            return "Đã kết thúc PID \(pid)."
         }
     }
 
     func timeoutMessage(for pid: Int) -> String {
         switch self {
         case .resume:
-            return "Could not confirm resume for PID \(pid). Try again."
+            return "Chưa xác nhận được PID \(pid) đã tiếp tục. Hãy thử lại."
         case .pause:
-            return "Could not confirm pause for PID \(pid). Try again."
+            return "Chưa xác nhận được PID \(pid) đã tạm dừng. Hãy thử lại."
         case .kill:
-            return "Could not confirm termination for PID \(pid). Try again."
+            return "Chưa xác nhận được PID \(pid) đã kết thúc. Hãy thử lại."
         }
     }
 }
@@ -284,7 +284,7 @@ private struct ProcessRow: View {
                             onKillTap(process)
                         } label: {
                             if isConfirming {
-                                Label("Confirm", systemImage: "checkmark.circle.fill")
+                                Label("Confirm".localized, systemImage: "checkmark.circle.fill")
                                     .labelStyle(.iconOnly)
                                     .font(.title3)
                             } else {
@@ -375,7 +375,7 @@ final class ProcessInspectorViewModel: ObservableObject {
             let errorMessage = err?.localizedDescription
             await MainActor.run {
                 if let errorMessage {
-                    self.errorAlertTitle = "Failed to Load Processes"
+                    self.errorAlertTitle = "Failed to Load Processes".localized
                     self.errorAlertMessage = errorMessage
                     self.showErrorAlert = true
                 } else {
@@ -398,11 +398,11 @@ final class ProcessInspectorViewModel: ObservableObject {
 
     func control(_ action: ProcessControlAction, process: ProcessInfoEntry) {
         guard activeControlState == nil else {
-            actionAlertTitle = "Busy"
+            actionAlertTitle = "Busy".localized
             if let activeControlState {
                 actionAlertMessage = "\(activeControlState.action.progressTitle) for PID \(activeControlState.pid)."
             } else {
-                actionAlertMessage = "Another process action is already running."
+                actionAlertMessage = "Another process action is already running.".localized
             }
             showActionAlert = true
             return
@@ -431,7 +431,7 @@ final class ProcessInspectorViewModel: ObservableObject {
                 err = nsError
                 success = false
             }
-            let errorMessage = err?.localizedDescription ?? "Unknown error"
+            let errorMessage = err?.localizedDescription ?? "Unknown error".localized
             await MainActor.run {
                 self.controlTimeoutTask?.cancel()
                 self.controlTimeoutTask = nil
@@ -451,3 +451,4 @@ final class ProcessInspectorViewModel: ObservableObject {
         }
     }
 }
+

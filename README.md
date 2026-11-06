@@ -1,3 +1,29 @@
+# StikDebug VN 3.2.1 — beta 1
+
+Bản Việt hóa và nâng cấp mô phỏng tuyến của [StikDebug](https://github.com/StikDebug/StikDebug), do © Sentechtipsvn phát triển trên bản fork. Giữ giấy phép AGPL-3.0 và ghi công tác giả gốc.
+
+- Chọn điểm bằng link Apple Maps/Google Maps, tọa độ, Dấu trang, tìm kiếm hoặc bản đồ.
+- Lấy vị trí thiết bị cho điểm đi; phân biệt vị trí đang mô phỏng.
+- Tuyến nhiều điểm, thời gian dừng, tốc độ km/h, tạm dừng/tiếp tục.
+- Lưu đường đi và cấu hình, mở lại và xuất/nhập JSON; giữ nhập GPX/KML/GeoJSON/CSV/text.
+- Giao diện tiếng Việt, tài nguyên dịch tách riêng; giữ các công cụ JIT, Scripts, nhật ký và thiết bị.
+
+## Bản thử nghiệm
+
+- Cần iOS 17.4 trở lên. Máy đích của dự án là iPhone 11/iOS 18.7.8.
+- Build bằng workflow **Build StikDebug VN IPA**. IPA không ký; ký/cài bằng phương thức sideload của người dùng.
+- Tên cài đặt **StikDebug VN**, Bundle ID `com.sentechtipsvn.stikdebugvn`, cài song song với bản gốc.
+- Sandbox riêng: pairing, cấu hình và Bookmarks của bản gốc không tự chuyển. Nhập lại pairing/VPN và thêm/nhập dữ liệu trong bản VN; không cần gỡ bản gốc.
+- URL scheme riêng `stikdebugvn://` và `stikjitvn://`; endpoint và tham số tương đương bản gốc. Ví dụ `stikdebugvn://simulate-location?lat=10.87139&lon=106.73716`.
+- Link rút gọn và tính tuyến mới cần mạng. Link chỉ có tên/Place ID có thể cần chọn lại kết quả; không cam kết mọi link đều phân giải chính xác. Đường đi đã lưu có thể phát lại mà không tính tuyến mới, nhưng lớp bản đồ và kết nối mô phỏng có yêu cầu riêng.
+- Nếu ứng dụng bị đình chỉ lâu, bộ phát tạm dừng tại tiến độ đã xác nhận; không chạy bù gây nhảy vị trí. Chạy nền, khóa màn hình và liên kết thực tế cần thử trên iPhone.
+
+`Validation/main.swift` kiểm tra hình học tuyến, quãng đường/tốc độ, thời gian dừng, dữ liệu lưu và phân tích link bằng Swift thuần trước bước build. Build thành công không thay thế kiểm thử thiết bị hoặc đánh giá của người dùng.
+
+Bản nháp được chuẩn bị để chủ repo đọc, hiểu và thử trước khi gửi PR hoặc hợp nhất theo [AGENTS.md](AGENTS.md). Chưa có xác nhận thử trên iPhone. Không mở PR/issue tự động.
+
+---
+
 <div align="center">
    <img width="217" height="217" src="/assets/StikDebug.png" alt="Logo">
 </div>
@@ -156,3 +182,4 @@ We appreciate your time and effort in helping improve this project.
 
 ## License
 StikDebug is licensed under **AGPL-3.0**. See [`LICENSE`](LICENSE) for details.
+

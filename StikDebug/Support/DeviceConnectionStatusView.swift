@@ -19,13 +19,13 @@ struct DeviceConnectionStatusView: View {
     }
 
     private var title: String {
-        if tunnel.isStarting { return "Connecting…" }
+        if tunnel.isStarting { return "Connecting…".localized }
         if let diagnosis { return diagnosis.title }
-        if !tunnel.isConnected { return "Device not connected" }
-        if isReadingApps { return "Connecting…" }
-        if errorMessage != nil { return "Connection error" }
-        if !hasConfirmedApps { return "App list unavailable" }
-        return "Device connected"
+        if !tunnel.isConnected { return "Device not connected".localized }
+        if isReadingApps { return "Connecting…".localized }
+        if errorMessage != nil { return "Connection error".localized }
+        if !hasConfirmedApps { return "App list unavailable".localized }
+        return "Device connected".localized
     }
 
     private var diagnosisSummary: some View {
@@ -51,14 +51,14 @@ struct DeviceConnectionStatusView: View {
                 diagnosisSummary
                 if !isWorking, diagnosis?.canConnectVPN == true {
                     Button(action: connectLocalDevVPN) {
-                        Text("Tap here to connect the VPN")
+                        Text("Tap here to connect the VPN".localized)
                             .font(.subheadline)
                             .foregroundStyle(.tint)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .buttonStyle(.borderless)
-                    .accessibilityHint("Opens LocalDevVPN")
+                    .accessibilityHint("Opens LocalDevVPN".localized)
                 }
                 if !isWorking, tunnel.isConnected, errorMessage == nil, let notice = tunnel.connectionNotice {
                     Text(notice)
@@ -83,7 +83,7 @@ struct DeviceConnectionStatusView: View {
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel(didCopy ? "Error copied" : "Copy Error")
+                .accessibilityLabel(didCopy ? "Error copied".localized : "Copy Error".localized)
                 .task(id: didCopy) {
                     guard didCopy else { return }
                     try? await Task.sleep(for: .seconds(1.2))
@@ -98,3 +98,4 @@ struct DeviceConnectionStatusView: View {
         .onChange(of: errorDetail) { _, _ in didCopy = false }
     }
 }
+
