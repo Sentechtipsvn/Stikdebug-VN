@@ -1,0 +1,11 @@
+{
+  "content_type": "application/octet-stream",
+  "filename": "StikDebug-VN — Signed.shortcut",
+  "format": "AEA1",
+  "input_sha256": "54e35918089a675dbfee5ff03f6edd57386e331f77e57f54d553389c1bd58908",
+  "signed_sha256": "e3ff18f5805e3f6246401d8bc37e5786d9a72828cfec976dc6f6edaf42346f31",
+  "signing_mode": "anyone",
+  "size": 22980,
+  "provider": "Shortcuty Signing API",
+  "verification": "Input/output SHA-256 and AEA1 envelope checked; independent Apple trust-chain validation not performed."
+}

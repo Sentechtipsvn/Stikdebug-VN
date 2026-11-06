@@ -158,7 +158,7 @@ final class RoutePlaybackController: ObservableObject {
     }
 
     func pauseForEditing() async throws -> RouteEditAnchor? {
-        guard hasActiveRoute else {
+        guard hasActiveRoute || (state == .finished && session.isActive) else {
             if isLocked { throw LocationWorkflowError.busy }
             return nil
         }
@@ -299,6 +299,9 @@ final class RoutePlaybackController: ObservableObject {
 
     func replaceWithPin(_ coordinate: RouteCoordinate) async throws {
         guard coordinate.isValid else { throw RouteDataError.invalid }
+        guard FileManager.default.fileExists(atPath: PairingFileStore.prepareURL().path) else {
+            throw NSError(domain: "StikDebugVN", code: 1, userInfo: [NSLocalizedDescriptionKey: "Hãy nhập tệp ghép đôi trước khi mô phỏng."])
+        }
         let token = interruptForExternalAction()
         state = .starting
         let code = await send(coordinate, pairing: PairingFileStore.prepareURL().path)

@@ -61,13 +61,8 @@ jobs:
             SWIFT_OPTIMIZATION_LEVEL="-Onone" \
             IPHONEOS_DEPLOYMENT_TARGET=17.4
 
-      - name: Sign the Shortcuts bridge
-        run: |
-          curl --fail --show-error --silent --max-time 120 \
-            --form 'file=@Shortcuts/StikDebug-VN.unsigned.shortcut;filename=StikDebug-VN.shortcut' \
-            --output build/shortcut-signing-response.json \
-            'https://sign.shortcuty.app/api/v1/sign?response=json'
-          python3 Validation/verify_package.py --shortcut-only
+      - name: Verify signed Shortcuts bridge
+        run: python3 Validation/verify_package.py --shortcut-only
 
       - name: Verify identity and package update
         id: package

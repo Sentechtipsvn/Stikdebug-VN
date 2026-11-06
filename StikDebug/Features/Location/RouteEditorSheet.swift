@@ -85,7 +85,11 @@ struct RouteEditorSheet: View {
                         }
                     }.disabled(isCalculating)
                     if index == 0 {
-                        Button("Lấy lại vị trí hiện tại", systemImage: "location") { store.draft.originIsAutomatic = true; requestOriginIfNeeded() }
+                        Button("Lấy lại vị trí hiện tại", systemImage: "location") {
+                            store.draft.originIsAutomatic = true
+                            store.draft.dirty = true
+                            requestOriginIfNeeded()
+                        }
                             .font(.caption).disabled(isCalculating || currentLocation.isLoading)
                     }
                     if index > 0 && index < store.draft.rows.count - 1 {
@@ -101,7 +105,13 @@ struct RouteEditorSheet: View {
                 }.padding(.vertical, 4)
             }
             .onMove { from, to in if !isCalculating { store.draft.rows.move(fromOffsets: from, toOffset: to); store.draft.dirty = true; store.draft.originIsAutomatic = false } }
-            .onDelete { offsets in if !isCalculating && store.draft.rows.count - offsets.count >= 2 { store.draft.rows.remove(atOffsets: offsets); store.draft.dirty = true } }
+            .onDelete { offsets in
+                if !isCalculating && store.draft.rows.count - offsets.count >= 2 {
+                    if offsets.contains(0) { store.draft.originIsAutomatic = false }
+                    store.draft.rows.remove(atOffsets: offsets)
+                    store.draft.dirty = true
+                }
+            }
             Button("Thêm điểm dừng", systemImage: "plus.circle.fill") {
                 let row = RouteDraftRow()
                 store.draft.rows.insert(row, at: max(1, store.draft.rows.count - 1))

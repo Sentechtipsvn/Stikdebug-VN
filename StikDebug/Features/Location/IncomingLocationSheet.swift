@@ -16,6 +16,11 @@ struct IncomingLocationSheet: View {
     @State private var showPicker = false
     @State private var confirmPin = false
 
+    private var canAddStop: Bool {
+        if workspace.draft.dirty { return workspace.draft.hasDestination }
+        return playback.route != nil && playback.state != .finished
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -32,13 +37,13 @@ struct IncomingLocationSheet: View {
                     Section("Sếp muốn dùng điểm này thế nào?") {
                         Button("Dùng làm điểm đến", systemImage: "flag.checkered") { onChoice(.destination, point) }
                         Button("Thêm điểm dừng", systemImage: "plus.circle") { onChoice(.stop, point) }
-                            .disabled(!workspace.draft.hasDestination && playback.route == nil)
+                            .disabled(!canAddStop)
                         Button("Đặt vị trí tại đây", systemImage: "location.fill") {
                             if LocationSimulationSession.shared.isActive || playback.isLocked { confirmPin = true }
                             else { onChoice(.pin, point) }
                         }
                     }
-                    if !workspace.draft.hasDestination && playback.route == nil {
+                    if !canAddStop {
                         Text("Chọn Dùng làm điểm đến để tạo tuyến trước; sau đó có thể chia sẻ thêm các điểm dừng.").font(.footnote).foregroundStyle(.secondary)
                     }
                     if playback.hasActiveRoute {

@@ -33,16 +33,13 @@ final class LocationWorkspaceStore: ObservableObject {
     }
 
     func receiveDestination(_ point: RouteWaypoint, playback: RoutePlaybackController) {
-        if !draft.dirty {
-            draft = playback.hasActiveRoute ? playback.remainingDraft() : LocationRouteDraft()
-        }
+        prepareEditor(playback: playback)
         draft.setDestination(point)
         useSimulationAsOriginIfAutomatic()
     }
 
     func receiveStop(_ point: RouteWaypoint, playback: RoutePlaybackController) throws {
-        if !draft.dirty && playback.hasActiveRoute { draft = playback.remainingDraft() }
-        else if !draft.hasDestination, let route = playback.route, playback.state != .finished { draft = LocationRouteDraft(route: route) }
+        prepareEditor(playback: playback)
         try draft.addStop(point)
         useSimulationAsOriginIfAutomatic()
     }

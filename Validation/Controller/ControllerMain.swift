@@ -81,6 +81,8 @@ struct ControllerValidation {
         expect(p.state == .finished && p.displaySpeedKmh == 0, "Arrival holds destination with zero speed")
         expect(session.isActive && session.coordinate!.latitude == c.latitude, "End preserves exact destination")
         expect(p.statusTitle.contains("Đã đến"), "End title distinguishes completion from manual pause")
+        let endAnchor = try await p.pauseForEditing()
+        expect(endAnchor?.coordinate == c, "Draft applied after old route finished still anchors held destination")
         p.stop()
         try await waitUntil("clear") { p.state == .ready && !p.isSending }
         expect(!session.isActive && session.coordinate == nil, "Return to real GPS clears active session only after acknowledgement")
@@ -214,5 +216,9 @@ struct ControllerValidation {
         session.stop()
         store.discardDraft()
         expect(!store.draft.hasDestination && !store.draft.dirty, "Explicit discard clears draft")
+        try p.load(example())
+        store.receiveDestination(.init(name: "Đích đã đổi", coordinate: c), playback: p)
+        expect(store.draft.rows.count == 3 && store.draft.rows[1].point?.name == "Trạm B", "Sharing destination preserves stops of a prepared route")
+        expect(store.draft.rows[1].dwell == 300, "Sharing destination preserves prepared dwell configuration")
     }
 }
