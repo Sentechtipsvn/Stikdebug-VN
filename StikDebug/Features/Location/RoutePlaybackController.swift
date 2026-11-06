@@ -18,6 +18,15 @@ struct RouteEditAnchor {
     let completedIDs: Set<UUID>
 }
 
+// Includes device sleep and is unaffected by manual changes to the calendar clock.
+enum RouteSteadyClock {
+    private static let origin = ContinuousClock.now
+    static func seconds() -> TimeInterval {
+        let elapsed = origin.duration(to: ContinuousClock.now).components
+        return Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18
+    }
+}
+
 @MainActor
 final class RoutePlaybackController: ObservableObject {
     static let shared = RoutePlaybackController()
@@ -46,7 +55,7 @@ final class RoutePlaybackController: ObservableObject {
     private let clock: () -> TimeInterval
     private let automaticTicks: Bool
 
-    init(clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, automaticTicks: Bool = true, session: LocationSimulationSession = .shared) {
+    init(clock: @escaping () -> TimeInterval = { RouteSteadyClock.seconds() }, automaticTicks: Bool = true, session: LocationSimulationSession = .shared) {
         self.clock = clock
         self.automaticTicks = automaticTicks
         self.session = session
