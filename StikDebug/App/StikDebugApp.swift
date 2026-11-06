@@ -33,6 +33,7 @@ struct StikDebugApp: App {
     private func handleScenePhaseChange(_ newPhase: ScenePhase) {
         switch newPhase {
         case .background:
+            LocationWorkspaceStore.shared.flush()
             shouldAttemptTunnelReconnect = true
         case .active:
             if shouldAttemptTunnelReconnect {

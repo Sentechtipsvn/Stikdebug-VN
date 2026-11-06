@@ -1,10 +1,13 @@
-# StikDebug VN 3.2.1 — beta 1
+# StikDebug VN 3.2.2 — beta 2
 
 Bản Việt hóa và nâng cấp mô phỏng tuyến của [StikDebug](https://github.com/StikDebug/StikDebug), do © Sentechtipsvn phát triển trên bản fork. Giữ giấy phép AGPL-3.0 và ghi công tác giả gốc.
 
 - Chọn điểm bằng link Apple Maps/Google Maps, tọa độ, Dấu trang, tìm kiếm hoặc bản đồ.
 - Lấy vị trí thiết bị cho điểm đi; phân biệt vị trí đang mô phỏng.
-- Tuyến nhiều điểm, thời gian dừng, tốc độ km/h, tạm dừng/tiếp tục.
+- Tuyến nhiều điểm; nhập tự do thời gian nghỉ bằng giây/phút/giờ, tự đi tiếp và giữ bộ đếm khi tạm dừng.
+- Trạng thái rõ ràng, tốc độ mô phỏng tách khỏi tốc độ đặt, Về GPS thật có xác nhận kết quả lệnh.
+- Phím tắt chia sẻ vị trí vào app để đặt một điểm, dùng làm điểm đến hoặc thêm trạm; mở phím tắt không đầu vào để soạn tuyến.
+- Sửa bản nháp khi đang chạy; chỉ áp dụng sau xác nhận, giữ tọa độ và phần nghỉ còn lại, chờ Tiếp tục.
 - Lưu đường đi và cấu hình, mở lại và xuất/nhập JSON; giữ nhập GPX/KML/GeoJSON/CSV/text.
 - Giao diện tiếng Việt, tài nguyên dịch tách riêng; giữ các công cụ JIT, Scripts, nhật ký và thiết bị.
 
@@ -12,15 +15,15 @@ Bản Việt hóa và nâng cấp mô phỏng tuyến của [StikDebug](https://
 
 - Cần iOS 17.4 trở lên. Máy đích của dự án là iPhone 11/iOS 18.7.8.
 - Build bằng workflow **Build StikDebug VN IPA**. IPA không ký; ký/cài bằng phương thức sideload của người dùng.
-- Tên cài đặt **StikDebug VN**, Bundle ID `com.sentechtipsvn.stikdebugvn`, cài song song với bản gốc.
+- Tên cài đặt **StikDebug VN**, Bundle ID `com.sentechtipsvn.stikdebugvn`. Cập nhật đè lên VN 3.2.1 bằng cùng AltStore/tài khoản; không gỡ app VN để giữ dữ liệu. Bản gốc vẫn có mã ứng dụng riêng.
 - Sandbox riêng: pairing, cấu hình và Bookmarks của bản gốc không tự chuyển. Nhập lại pairing/VPN và thêm/nhập dữ liệu trong bản VN; không cần gỡ bản gốc.
 - URL scheme riêng `stikdebugvn://` và `stikjitvn://`; endpoint và tham số tương đương bản gốc. Ví dụ `stikdebugvn://simulate-location?lat=10.87139&lon=106.73716`.
 - Link rút gọn và tính tuyến mới cần mạng. Link chỉ có tên/Place ID có thể cần chọn lại kết quả; không cam kết mọi link đều phân giải chính xác. Đường đi đã lưu có thể phát lại mà không tính tuyến mới, nhưng lớp bản đồ và kết nối mô phỏng có yêu cầu riêng.
-- Nếu ứng dụng bị đình chỉ lâu, bộ phát tạm dừng tại tiến độ đã xác nhận; không chạy bù gây nhảy vị trí. Chạy nền, khóa màn hình và liên kết thực tế cần thử trên iPhone.
+- Nếu bị đình chỉ khi di chuyển, bộ phát tạm dừng tại tiến độ đã xác nhận. Khi đang nghỉ, đối chiếu hạn nghỉ lúc được chạy lại rồi tiếp tục từ trạm, không chạy bù quãng đường. Chạy nền, khóa màn hình và liên kết thực tế cần thử trên iPhone.
 
-`Validation/main.swift` kiểm tra hình học tuyến, quãng đường/tốc độ, thời gian dừng, dữ liệu lưu và phân tích link bằng Swift thuần trước bước build. Build thành công không thay thế kiểm thử thiết bị hoặc đánh giá của người dùng.
+`Validation/main.swift` kiểm tra logic thuần. `Validation/Controller` chạy đúng controller, session và kho bản nháp dùng trong app với đồng hồ điều khiển và biên thiết bị mô phỏng. `Validation/verify_bridge.py` kiểm tra đồ thị tác vụ/phân nhánh/mã hóa của phím tắt; đây không phải chạy Shortcuts trên iPhone. CI ký phím tắt bằng Shortcuty, đối chiếu SHA-256 và bao AEA1 trước khi tải lên. [Hướng dẫn 3.2.2](docs/THU_BAN_VN_3.2.2.md). Build thành công không thay thế kiểm thử thiết bị hoặc đánh giá của người dùng.
 
-Bản nháp được chuẩn bị để chủ repo đọc, hiểu và thử trước khi gửi PR hoặc hợp nhất theo [AGENTS.md](AGENTS.md). Chưa có xác nhận thử trên iPhone. Không mở PR/issue tự động.
+Bản nháp được chuẩn bị để chủ repo đọc, hiểu và thử trước khi gửi PR hoặc hợp nhất theo [AGENTS.md](AGENTS.md). Sếp đã thử VN 3.2.1; thay đổi 3.2.2 cần kiểm thử iPhone sau khi CI đạt. Không mở PR/issue tự động.
 
 ---
 

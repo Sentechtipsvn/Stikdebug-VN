@@ -83,4 +83,61 @@ expectThrows("Truncated geometry rejected") { _ = try broken.validated() }
 broken = saved
 broken.waypoints[1].id = broken.waypoints[0].id
 expectThrows("Duplicate waypoint IDs rejected") { _ = try broken.validated() }
-print("PASS: \(checks) route and location checks")
+
+expect(try RestDuration.parse("5", unit: .minutes) == 300, "Five minutes")
+expect(try RestDuration.parse("1,5", unit: .minutes) == 90, "Vietnam decimal comma")
+expect(try RestDuration.parse("1.5", unit: .minutes) == 90, "Decimal dot")
+expect(try RestDuration.parse(" 0 ", unit: .hours) == 0, "Zero skips rest")
+expect(try RestDuration.parse("24", unit: .hours) == 86400, "Upper duration boundary")
+expect(try RestDuration.parse("0.5", unit: .seconds) == 1, "Duration rounds to second precision")
+for input in ["", "-1", "+5", "NaN", "inf", "1e3", "5 phút", "1,2.3", "999999999999999999999999999999999999"] {
+    expectThrows("Invalid rest input: \(input)") { _ = try RestDuration.parse(input, unit: .minutes) }
+}
+expectThrows("Duration above 24h") { _ = try RestDuration.parse("24.01", unit: .hours) }
+expect(RestDuration.clock(300) == "05:00" && RestDuration.clock(3601) == "01:00:01", "Readable rest clock")
+expect(RestDuration.clock(.nan) == "00:00" && RestDuration.clock(-1) == "00:00", "Clock invalid values safe")
+expect(RestDuration.initialEntry(seconds: 90).1 == .seconds, "Duration editor keeps exact saved value")
+expect(RestDuration.initialEntry(seconds: 300).1 == .minutes, "Duration editor defaults to minutes")
+var arrival = RouteProgress()
+arrival.advance(seconds: 2, speed: 10, totalDistance: 100, stops: [.init(distance: 5, seconds: 300)], stopAtArrival: true)
+expect(arrival.distance == 5 && arrival.dwellRemaining == 300, "Live arrival starts full duration after acknowledgement")
+arrival.setDwellRemaining(150)
+expect(arrival.remainingDwell(stops: [.init(distance: 5, seconds: 300)]) == 150, "Remaining dwell does not count visited stop twice")
+
+let inputs = [
+    "https://maps.apple.com/?ll=10.87139,106.73716&q=Kho Sếp & quán + café #1",
+    "Quán A\nhttps://maps.app.goo.gl/aBc?x=1&y=2",
+    "10.87139,106.73716", "123 Đỗ Mười, Thủ Đức", "%2C & + / ? = #"
+]
+for input in inputs {
+    var url = URLComponents(string: "stikdebugvn://receive-location")!
+    url.queryItems = [.init(name: "input", value: input)]
+    expect(try LocationReceiveRequest.parse(url.url!).input == input, "Shortcut payload decoded exactly once: \(input)")
+}
+expect(try LocationReceiveRequest.parse(URL(string: "stikdebugvn://create-route")!).isCompose, "Home shortcut opens editor")
+expect(try LocationReceiveRequest.parse(URL(string: "stikdebugvn://receive-location?lat=10&lon=106")!).input == "10,106", "Receiver supports direct coordinate parameters")
+for invalid in ["stikdebug://receive-location?input=x", "stikdebugvn://simulate-location?input=x", "stikdebugvn://receive-location?input=x&input=y", "stikdebugvn://receive-location?lat=91&lon=106", "stikdebugvn://receive-location?lat=10", "stikdebugvn://user@receive-location?input=x", "stikdebugvn://receive-location:123/?input=x"] {
+    expectThrows("Invalid receive URL: \(invalid)") { _ = try LocationReceiveRequest.parse(URL(string: invalid)!) }
+}
+var huge = URLComponents(string: "stikdebugvn://receive-location")!
+huge.queryItems = [.init(name: "input", value: String(repeating: "x", count: 16385))]
+expectThrows("Oversized receive input") { _ = try LocationReceiveRequest.parse(huge.url!) }
+
+var draft = LocationRouteDraft()
+expect(draft.originIsAutomatic && !draft.hasDestination, "New draft automatically requests origin")
+expectThrows("Cannot add stop before destination") { try draft.addStop(.init(name: "Trạm", coordinate: a)) }
+draft.setDestination(.init(name: "Đích", coordinate: b))
+draft.rows[0].point = .init(name: "Điểm đi", coordinate: a)
+let visited = RouteWaypoint(name: "Đã qua", coordinate: a, dwellSeconds: 300)
+try draft.addStop(visited)
+try draft.addStop(.init(name: "Sắp đến", coordinate: b, dwellSeconds: 90))
+expect(draft.rows.count == 4 && draft.rows.last?.point?.name == "Đích", "Shared stops insert before destination")
+expect(draft.points?[1].dwellSeconds == 300 && draft.points?[2].dwellSeconds == 90, "Draft retains exact dwell per stop")
+let rebased = try draft.rebased(at: middle, completedIDs: [visited.id])
+expect(rebased.count == 3 && rebased[0].coordinate == middle && rebased[1].name == "Sắp đến", "Editing removes visited stops and anchors current position")
+expect(rebased.last?.name == "Đích", "Editing retains destination")
+expect(try JSONDecoder().decode(LocationRouteDraft.self, from: JSONEncoder().encode(draft)) == draft, "Draft persistence round trip")
+expect(LocationRouteDraft(route: saved).originIsAutomatic == false, "Opening saved route retains its selected origin")
+expect(SimulationDisplayPhase.resting.showsZeroSpeed && SimulationDisplayPhase.paused.showsZeroSpeed && SimulationDisplayPhase.holding.showsZeroSpeed, "Stationary statuses have zero simulated speed")
+expect(!SimulationDisplayPhase.failed.showsZeroSpeed && !SimulationDisplayPhase.starting.showsZeroSpeed, "Unknown backend state does not invent a speed")
+print("PASS: \(checks) route/location/duration/receiver/draft checks")

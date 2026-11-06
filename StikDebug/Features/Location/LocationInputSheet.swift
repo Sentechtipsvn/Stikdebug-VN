@@ -5,6 +5,7 @@ struct LocationInputSheet: View {
     @Environment(\.dismiss) private var dismiss
     let title: String
     let onSelect: (RouteWaypoint) -> Void
+    private let initialInput: String
     @StateObject private var deviceLocation = CurrentLocationProvider()
     @StateObject private var completer = LocationSearchCompleter()
     @State private var text = ""
@@ -17,6 +18,13 @@ struct LocationInputSheet: View {
     @State private var showMap = false
     @State private var requestID = UUID()
     @State private var task: Task<Void, Never>?
+
+    init(title: String, initialInput: String = "", onSelect: @escaping (RouteWaypoint) -> Void) {
+        self.title = title
+        self.initialInput = initialInput
+        self.onSelect = onSelect
+        _text = State(initialValue: initialInput)
+    }
 
     var body: some View {
         NavigationStack {
@@ -118,6 +126,7 @@ struct LocationInputSheet: View {
                 if let data = UserDefaults.standard.data(forKey: "locationBookmarks") {
                     bookmarks = (try? JSONDecoder().decode([LocationBookmark].self, from: data)) ?? []
                 }
+                if !initialInput.isEmpty { resolve() }
             }
             .onReceive(deviceLocation.$result) { if let value = $0 { candidate = value } }
             .onDisappear { invalidateRequest(); deviceLocation.cancel() }

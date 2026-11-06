@@ -303,7 +303,7 @@ struct SettingsView: View {
         } else {
             txmLabel = processInfo.hasTXM ? "TXM" : "Non TXM".localized
         }
-        return "VN beta 1 · Phiên bản \(appVersion) • iOS \(UIDevice.current.systemVersion) • \(txmLabel)"
+        return "VN beta 2 · Phiên bản \(appVersion) • iOS \(UIDevice.current.systemVersion) • \(txmLabel)"
     }
 
     private func handleAudioKeepAliveChange(_ enabled: Bool) {

@@ -172,7 +172,11 @@ struct RouteProgress: Sendable {
     private(set) var nextStop = 0
     private(set) var dwellRemaining: Double = 0
 
-    mutating func advance(seconds: Double, speed: Double, totalDistance: Double, stops: [RouteDwell]) {
+    mutating func setDwellRemaining(_ seconds: Double) {
+        dwellRemaining = seconds.isFinite ? max(0, seconds) : 0
+    }
+
+    mutating func advance(seconds: Double, speed: Double, totalDistance: Double, stops: [RouteDwell], stopAtArrival: Bool = false) {
         guard seconds.isFinite, speed.isFinite, seconds > 0, speed > 0 else { return }
         var time = seconds
         while time > 0 {
@@ -190,6 +194,7 @@ struct RouteProgress: Sendable {
                     time -= travelTime
                     dwellRemaining = max(0, stop.seconds)
                     nextStop += 1
+                    if stopAtArrival && dwellRemaining > 0 { return }
                     continue
                 }
             }

@@ -55,6 +55,8 @@ struct MainTabView: View {
     @State private var detachedFeature: AppFeature?
     @State private var didSetInitialHome = false
     @State private var pendingLocationAction: ExternalLocationAction?
+    @State private var pendingRouteRequest: LocationReceiveRequest?
+    @State private var awaitingFeatureDismiss = false
 
     var body: some View {
         ZStack {
@@ -100,7 +102,14 @@ struct MainTabView: View {
             } message: { action in
                 Text(action.message)
             }
-            .sheet(item: $detachedFeature) { feature in
+            .sheet(item: $detachedFeature, onDismiss: {
+                awaitingFeatureDismiss = false
+                if let request = pendingRouteRequest {
+                    pendingRouteRequest = nil
+                    LocationWorkspaceStore.shared.incoming = request
+                    detachedFeature = .location
+                }
+            }) { feature in
                 NavigationStack {
                     feature.destination
                         .toolbar {
@@ -127,6 +136,21 @@ struct MainTabView: View {
         guard let host = url.host()?.lowercased() else { return }
 
         switch host {
+        case "receive-location", "create-route":
+            do {
+                let request = try LocationReceiveRequest.parse(url)
+                // Draft state lives outside sheets, so sharing another point cannot discard it.
+                if detachedFeature != nil || awaitingFeatureDismiss {
+                    pendingRouteRequest = request
+                    awaitingFeatureDismiss = true
+                    detachedFeature = nil
+                } else {
+                    LocationWorkspaceStore.shared.incoming = request
+                    detachedFeature = .location
+                }
+            } catch {
+                showAlert(title: "Yêu cầu vị trí không hợp lệ", message: error.localizedDescription, showOk: true)
+            }
         case "simulate-location", "set-location":
             confirmSimulatedLocation(from: url)
         case "location", "location-simulation":

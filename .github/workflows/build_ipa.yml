@@ -10,8 +10,9 @@ permissions:
 
 jobs:
   build:
-    name: Test and Build VN IPA
+    name: Verify and Build VN 3.2.2
     runs-on: xcode-27
+    timeout-minutes: 20
     steps:
       - name: Fetch source
         uses: actions/checkout@v6
@@ -21,12 +22,28 @@ jobs:
         with:
           xcode-version: '27.1'
 
-      - name: Verify route and location logic
+      - name: Verify route, duration, receiver and draft logic
         run: |
+          mkdir -p build
           swiftc -swift-version 5 StikDebug/Features/Location/RouteCore.swift \
             StikDebug/Features/Location/LocationLinkParser.swift \
+            StikDebug/Features/Location/LocationWorkflowCore.swift \
             Validation/main.swift -o /tmp/stikdebug-vn-validation
-          /tmp/stikdebug-vn-validation
+          /tmp/stikdebug-vn-validation | tee build/core-validation.txt
+          python3 Validation/verify_bridge.py | tee build/bridge-validation.txt
+
+      - name: Exercise production playback controller and session
+        run: |
+          swiftc -swift-version 5 \
+            StikDebug/Features/Location/RouteCore.swift \
+            StikDebug/Features/Location/LocationLinkParser.swift \
+            StikDebug/Features/Location/LocationWorkflowCore.swift \
+            StikDebug/Features/Location/RoutePlaybackController.swift \
+            StikDebug/Features/Location/LocationWorkspaceStore.swift \
+            StikDebug/Services/LocationSimulationSession.swift \
+            Validation/Controller/Stubs.swift Validation/Controller/ControllerMain.swift \
+            -o /tmp/stikdebug-vn-controller-validation
+          /tmp/stikdebug-vn-controller-validation | tee build/controller-validation.txt
 
       - name: Compile unsigned device app
         run: |
@@ -44,18 +61,44 @@ jobs:
             SWIFT_OPTIMIZATION_LEVEL="-Onone" \
             IPHONEOS_DEPLOYMENT_TARGET=17.4
 
-      - name: Package VN IPA
+      - name: Sign the Shortcuts bridge
+        run: |
+          curl --fail --show-error --silent --max-time 120 \
+            --form 'file=@Shortcuts/StikDebug-VN.unsigned.shortcut;filename=StikDebug-VN.shortcut' \
+            --output build/shortcut-signing-response.json \
+            'https://sign.shortcuty.app/api/v1/sign?response=json'
+          python3 Validation/verify_package.py --shortcut-only
+
+      - name: Verify identity and package update
         id: package
         run: |
+          python3 Validation/verify_package.py
           mkdir -p Payload
           cp -R build/StikDebug-VN.xcarchive/Products/Applications/StikDebug.app Payload/
-          file_name="StikDebug-VN-3.2.1-${GITHUB_SHA::7}.ipa"
+          file_name="StikDebug-VN-3.2.2-${GITHUB_SHA::7}.ipa"
           zip -qr "$file_name" Payload
+          shasum -a 256 "$file_name" build/StikDebug-VN.shortcut | tee build/SHA256SUMS.txt
+          cat build/core-validation.txt build/controller-validation.txt build/bridge-validation.txt > build/Verification-3.2.2.txt
+          cat build/SHA256SUMS.txt >> build/Verification-3.2.2.txt
           echo "file_name=$file_name" >> "$GITHUB_OUTPUT"
 
       - name: Upload VN IPA
         uses: actions/upload-artifact@v7
         with:
           path: ${{ steps.package.outputs.file_name }}
+          archive: false
+          retention-days: 30
+
+      - name: Upload signed Shortcuts bridge
+        uses: actions/upload-artifact@v7
+        with:
+          path: build/StikDebug-VN.shortcut
+          archive: false
+          retention-days: 30
+
+      - name: Upload verification results
+        uses: actions/upload-artifact@v7
+        with:
+          path: build/Verification-3.2.2.txt
           archive: false
           retention-days: 30
