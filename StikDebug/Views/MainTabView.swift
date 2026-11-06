@@ -186,8 +186,6 @@ struct MainTabView: View {
     }
 
     private func simulateLocation(from url: URL) {
-        RoutePlaybackController.shared.interruptForExternalAction()
-        RoutePlaybackController.shared.resetDraft()
         guard let coordinate = coordinate(from: url) else {
             showAlert(
                 title: "Invalid Location URL".localized,
@@ -216,6 +214,7 @@ struct MainTabView: View {
             return
         }
 
+        let token = RoutePlaybackController.shared.interruptForExternalAction()
         LocationSimulationCommandQueue.shared.async {
             let code = simulate_location(
                 DeviceConnectionContext.targetIPAddress,
@@ -225,15 +224,18 @@ struct MainTabView: View {
             )
 
             DispatchQueue.main.async {
+                guard RoutePlaybackController.shared.isCurrentAction(token) else { return }
                 if code == 0 {
+                    RoutePlaybackController.shared.resetDraft()
                     LocationSimulationSession.shared.clearRoute()
                     LocationSimulationSession.shared.startResending(
                         at: CLLocationCoordinate2D(
                             latitude: coordinate.latitude,
                             longitude: coordinate.longitude
                         )
-                    ) {
+                    ) { resendToken in
                         LocationSimulationCommandQueue.shared.async {
+                            guard LocationSimulationSession.shared.isCurrentResend(resendToken) else { return }
                             _ = simulate_location(
                                 DeviceConnectionContext.targetIPAddress,
                                 coordinate.latitude,
@@ -257,10 +259,11 @@ struct MainTabView: View {
     }
 
     private func clearSimulatedLocation() {
-        RoutePlaybackController.shared.interruptForExternalAction()
+        let token = RoutePlaybackController.shared.interruptForExternalAction()
         LocationSimulationCommandQueue.shared.async {
             let code = clear_simulated_location()
             DispatchQueue.main.async {
+                guard RoutePlaybackController.shared.isCurrentAction(token) else { return }
                 if code == 0 {
                     LocationSimulationSession.shared.stop()
                     LogManager.shared.addInfoLog("Cleared simulated location from URL")

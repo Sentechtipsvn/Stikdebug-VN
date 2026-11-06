@@ -90,6 +90,11 @@ final class RoutePlaybackController: ObservableObject {
         message = nil
     }
 
+    func updateRouteName(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { route?.name = trimmed }
+    }
+
     func start() {
         guard !isLocked, let route, let first = route.coordinates.first else { return }
         let pairing = PairingFileStore.prepareURL().path
@@ -136,7 +141,8 @@ final class RoutePlaybackController: ObservableObject {
     }
 
     // External URL actions share the same serial command queue. Invalidate this producer first.
-    func interruptForExternalAction() {
+    @discardableResult
+    func interruptForExternalAction() -> UUID {
         generation = UUID()
         task?.cancel()
         task = nil
@@ -144,7 +150,10 @@ final class RoutePlaybackController: ObservableObject {
         session.pauseResending()
         session.clearRoute()
         if route != nil { state = .ready }
+        return generation
     }
+
+    func isCurrentAction(_ token: UUID) -> Bool { generation == token }
 
     func stop() {
         guard state != .stopping, !isSending else { return }
@@ -170,8 +179,9 @@ final class RoutePlaybackController: ObservableObject {
 
     func simulatePin(_ coordinate: RouteCoordinate) async throws {
         guard !isLocked, coordinate.isValid else { return }
-        interruptForExternalAction()
+        let token = interruptForExternalAction()
         let code = await send(coordinate, pairing: PairingFileStore.prepareURL().path)
+        guard generation == token else { return }
         guard code == 0 else { throw NSError(domain: "StikDebugVN", code: Int(code), userInfo: [NSLocalizedDescriptionKey: "Không đặt được vị trí (mã \(code)). Kiểm tra VPN, ghép đôi và DDI."]) }
         session.start(at: coordinate.clCoordinate)
         holdLastCoordinate()
@@ -218,8 +228,9 @@ final class RoutePlaybackController: ObservableObject {
         guard let coordinate = session.coordinate else { return }
         let ip = DeviceConnectionContext.targetIPAddress
         let pairing = PairingFileStore.prepareURL().path
-        session.startResending(at: coordinate) {
+        session.startResending(at: coordinate) { token in
             LocationSimulationCommandQueue.shared.async {
+                guard LocationSimulationSession.shared.isCurrentResend(token) else { return }
                 _ = simulate_location(ip, coordinate.latitude, coordinate.longitude, pairing)
             }
         }

@@ -1,5 +1,31 @@
 import Foundation
 
+// A queued resend must re-check its token when it actually reaches the device queue.
+final class SimulationCommandToken: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: UUID?
+
+    func begin() -> UUID {
+        lock.lock()
+        defer { lock.unlock() }
+        let token = UUID()
+        current = token
+        return token
+    }
+
+    func invalidate() {
+        lock.lock()
+        defer { lock.unlock() }
+        current = nil
+    }
+
+    func isCurrent(_ token: UUID) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return current == token
+    }
+}
+
 struct RouteCoordinate: Codable, Equatable, Sendable {
     var latitude: Double
     var longitude: Double

@@ -11,6 +11,14 @@ func expectThrows(_ message: String, _ operation: () throws -> Void) {
 }
 
 let a = RouteCoordinate(latitude: 10.87139, longitude: 106.73716)
+let commands = SimulationCommandToken()
+let firstCommand = commands.begin()
+expect(commands.isCurrent(firstCommand), "Current resend accepted")
+commands.invalidate()
+expect(!commands.isCurrent(firstCommand), "Stop rejects queued old resend")
+let nextCommand = commands.begin()
+expect(commands.isCurrent(nextCommand), "New resend accepted after stop")
+expect(!commands.isCurrent(firstCommand), "Previous session cannot overwrite new position")
 let b = RouteCoordinate(latitude: 10.81483, longitude: 106.71086)
 expect(a.isValid, "Vietnam coordinate valid")
 expect(!RouteCoordinate(latitude: .nan, longitude: 0).isValid, "NaN rejected")

@@ -194,7 +194,7 @@ struct VNLocationSimulationView: View {
         guard var route = playback.route else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { route.name = trimmed }
-        do { try RouteLibraryStore.shared.save(route) } catch { self.error = error.localizedDescription }
+        do { try RouteLibraryStore.shared.save(route); playback.updateRouteName(route.name) } catch { self.error = error.localizedDescription }
     }
     private func importCoordinates(_ result: Result<[URL], Error>) {
         guard canEdit else { return }
