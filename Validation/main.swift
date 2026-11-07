@@ -140,4 +140,23 @@ expect(try JSONDecoder().decode(LocationRouteDraft.self, from: JSONEncoder().enc
 expect(LocationRouteDraft(route: saved).originIsAutomatic == false, "Opening saved route retains its selected origin")
 expect(SimulationDisplayPhase.resting.showsZeroSpeed && SimulationDisplayPhase.paused.showsZeroSpeed && SimulationDisplayPhase.holding.showsZeroSpeed, "Stationary statuses have zero simulated speed")
 expect(!SimulationDisplayPhase.failed.showsZeroSpeed && !SimulationDisplayPhase.starting.showsZeroSpeed, "Unknown backend state does not invent a speed")
-print("PASS: \(checks) route/location/duration/receiver/draft checks")
+for missing in ["stikdebugvn://receive-location", "stikdebugvn://receive-location?input=%20"] {
+    expectThrows("Shared link without input reports an error") {
+        _ = try LocationReceiveRequest.parse(URL(string: missing)!)
+    }
+}
+let day: TimeInterval = 24 * 3600
+let now = Date(timeIntervalSince1970: 2_000_000_000)
+let expiry = now.addingTimeInterval(7 * day)
+let reminders = SigningExpirySchedule.dates(expiry: expiry, enabledAt: now, now: now)
+expect(reminders.count == 8 && reminders.first == expiry.addingTimeInterval(-day), "Expiry reminders start 24 hours before signing expiry")
+expect(reminders.last == expiry.addingTimeInterval(-3 * 3600), "Last reminder is 3 hours before expiry")
+expect(zip(reminders, reminders.dropFirst()).allSatisfy { $0.1.timeIntervalSince($0.0) == 3 * 3600 }, "Expiry reminder cadence is 3 hours")
+let late = expiry.addingTimeInterval(-3600)
+let lateReminders = SigningExpirySchedule.dates(expiry: expiry, enabledAt: late, now: late)
+expect(lateReminders == [late.addingTimeInterval(5)], "Enabling late gives one reminder before expiration")
+expect(SigningExpirySchedule.dates(expiry: expiry, enabledAt: late, now: late.addingTimeInterval(10)).isEmpty, "Reopening after a reminder does not recreate it")
+expect(SigningExpirySchedule.dates(expiry: expiry, enabledAt: now, now: expiry).isEmpty, "No reminders after expiration")
+let renewed = expiry.addingTimeInterval(7 * day)
+expect(SigningExpirySchedule.dates(expiry: renewed, enabledAt: late, now: late).first == renewed.addingTimeInterval(-day), "Renewal moves reminders to the new period")
+print("PASS: \(checks) route/location/duration/receiver/draft/signing reminder checks")

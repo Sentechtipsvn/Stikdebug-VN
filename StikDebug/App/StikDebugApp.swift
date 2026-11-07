@@ -22,6 +22,7 @@ struct StikDebugApp: App {
                 .environment(\.locale, Locale(identifier: "vi"))
                 .tint(.green)
                 .task {
+                    SigningExpiryReminder.shared.refresh()
                     await downloadMissingDeveloperDiskImageFiles()
                 }
                 .onChange(of: scenePhase) { _, newPhase in
@@ -36,6 +37,7 @@ struct StikDebugApp: App {
             LocationWorkspaceStore.shared.flush()
             shouldAttemptTunnelReconnect = true
         case .active:
+            SigningExpiryReminder.shared.refresh()
             if shouldAttemptTunnelReconnect {
                 shouldAttemptTunnelReconnect = false
                 startTunnelInBackground(showErrorUI: false)

@@ -1,6 +1,10 @@
 import SwiftUI
 
-private struct RouteEditingRow: Identifiable { let id: UUID; let title: String }
+private struct RouteEditingRow: Identifiable {
+    let id: UUID
+    let title: String
+    var editsDuration = false
+}
 
 struct RouteEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -9,7 +13,6 @@ struct RouteEditorSheet: View {
     @StateObject private var currentLocation = CurrentLocationProvider()
     let onApply: (SavedSimulationRoute) -> Void
     @State private var editing: RouteEditingRow?
-    @State private var durationRow: RouteEditingRow?
     @State private var isCalculating = false
     @State private var error: String?
     @State private var task: Task<Void, Never>?
@@ -43,14 +46,18 @@ struct RouteEditorSheet: View {
                 Button("Hủy", role: .cancel) {}
             } message: { Text("Dùng vị trí đang mô phỏng làm điểm đi mới. Các trạm đã qua được bỏ khỏi phần đường còn lại; thời gian nghỉ còn lại ở trạm hiện tại được giữ.") }
             .sheet(item: $editing) { item in
-                LocationInputSheet(title: item.title) { point in store.setPoint(point, rowID: item.id); editing = nil }
-            }
-            .sheet(item: $durationRow) { item in
-                let seconds = store.draft.rows.first(where: { $0.id == item.id })?.dwell ?? 0
-                RestDurationSheet(seconds: seconds, pointName: item.title) { value in
-                    if let index = store.draft.rows.firstIndex(where: { $0.id == item.id }) {
-                        store.draft.rows[index].dwell = value
-                        store.draft.dirty = true
+                if item.editsDuration {
+                    let seconds = store.draft.rows.first(where: { $0.id == item.id })?.dwell ?? 0
+                    RestDurationSheet(seconds: seconds, pointName: item.title) { value in
+                        if let index = store.draft.rows.firstIndex(where: { $0.id == item.id }) {
+                            store.draft.rows[index].dwell = value
+                            store.draft.dirty = true
+                        }
+                    }
+                } else {
+                    LocationInputSheet(title: item.title) { point in
+                        store.setPoint(point, rowID: item.id)
+                        editing = nil
                     }
                 }
             }
@@ -82,7 +89,7 @@ struct RouteEditorSheet: View {
                             }
                             Spacer()
                             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
-                        }
+                        }.contentShape(Rectangle())
                     }.disabled(isCalculating)
                     if index == 0 {
                         Button("Lấy lại vị trí hiện tại", systemImage: "location") {
@@ -93,16 +100,16 @@ struct RouteEditorSheet: View {
                             .font(.caption).disabled(isCalculating || currentLocation.isLoading)
                     }
                     if index > 0 && index < store.draft.rows.count - 1 {
-                        Button { durationRow = .init(id: row.id, title: row.point?.name ?? rowTitle(index)) } label: {
+                        Button { editing = .init(id: row.id, title: row.point?.name ?? rowTitle(index), editsDuration: true) } label: {
                             HStack {
                                 Label("Thời gian nghỉ", systemImage: "timer")
                                 Spacer()
                                 Text(row.dwell == 0 ? "Không nghỉ" : RestDuration.clock(row.dwell)).monospacedDigit()
                                 Image(systemName: "chevron.right").font(.caption2)
-                            }.font(.footnote)
+                            }.font(.footnote).contentShape(Rectangle())
                         }.disabled(isCalculating)
                     }
-                }.padding(.vertical, 4)
+                }.buttonStyle(.borderless).padding(.vertical, 4)
             }
             .onMove { from, to in if !isCalculating { store.draft.rows.move(fromOffsets: from, toOffset: to); store.draft.dirty = true; store.draft.originIsAutomatic = false } }
             .onDelete { offsets in

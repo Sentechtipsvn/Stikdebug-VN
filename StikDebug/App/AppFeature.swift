@@ -134,6 +134,6 @@ enum AppFeature: String, CaseIterable, Identifiable {
 
 extension AppFeature {
     static let mainTabs: [AppFeature] = [.home, .tools, .settings]
-    static let toolList: [AppFeature] = [.launchApps, .scripts, .console, .deviceInfo, .profiles, .processes, .location]
+    static let toolList: [AppFeature] = [.location, .launchApps, .scripts, .console, .deviceInfo, .profiles, .processes]
 }
 

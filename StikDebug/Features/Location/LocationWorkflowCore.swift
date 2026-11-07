@@ -141,6 +141,6 @@ struct LocationReceiveRequest: Identifiable, Equatable {
             guard let lat, let lon, LocationLinkParser.coordinatePair(lat + "," + lon) != nil else { throw LocationWorkflowError.invalidRequest }
             return Self(input: lat + "," + lon)
         }
-        return Self(input: nil)
+        throw LocationWorkflowError.invalidRequest
     }
 }

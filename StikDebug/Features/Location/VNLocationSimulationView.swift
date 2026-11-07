@@ -82,11 +82,15 @@ struct VNLocationSimulationView: View {
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
-        .onAppear { loadBookmarks(); updateMap(); receivePendingInput() }
+        .onAppear { loadBookmarks(); updateMap() }
         .onChange(of: playback.route?.legs) { _, _ in updateMap() }
-        .onChange(of: workspace.incoming?.id) { _, _ in receivePendingInput() }
+        .task(id: workspace.incoming?.id) {
+            await Task.yield()
+            if !Task.isCancelled { receivePendingInput() }
+        }
         .sheet(item: $modal, onDismiss: {
-            if let queued = nextModal { nextModal = nil; modal = queued }
+            if workspace.incoming != nil { receivePendingInput() }
+            else if let queued = nextModal { nextModal = nil; modal = queued }
         }) { item in
             switch item {
             case .input:
@@ -224,6 +228,11 @@ struct VNLocationSimulationView: View {
 
     private func receivePendingInput() {
         guard let request = workspace.incoming else { return }
+        if modal != nil {
+            nextModal = nil
+            modal = nil
+            return
+        }
         workspace.incoming = nil
         if request.isCompose { workspace.prepareEditor(playback: playback); modal = .editor }
         else { modal = .receiver(request) }

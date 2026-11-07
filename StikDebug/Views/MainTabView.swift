@@ -72,12 +72,9 @@ struct MainTabView: View {
             .onAppear {
                 ensureSelectionIsValid()
                 if !didSetInitialHome {
-                    selection = AppFeature.home.id
                     didSetInitialHome = true
+                    selection = AppFeature.home.id
                 }
-            }
-            .onOpenURL { url in
-                handleURL(url)
             }
             .confirmationDialog(
                 pendingLocationAction?.title ?? "External Location Request".localized,
@@ -106,8 +103,7 @@ struct MainTabView: View {
                 awaitingFeatureDismiss = false
                 if let request = pendingRouteRequest {
                     pendingRouteRequest = nil
-                    LocationWorkspaceStore.shared.incoming = request
-                    detachedFeature = .location
+                    showLocationRequest(request)
                 }
             }) { feature in
                 NavigationStack {
@@ -122,6 +118,14 @@ struct MainTabView: View {
                 }
             }
         }
+        .onOpenURL(perform: handleURL)
+    }
+
+    private func showLocationRequest(_ request: LocationReceiveRequest) {
+        didSetInitialHome = true
+        LogManager.shared.addInfoLog(request.isCompose ? "Đã nhận yêu cầu tạo tuyến từ Phím tắt." : "Đã nhận vị trí từ Phím tắt.")
+        selection = AppFeature.tools.id
+        LocationWorkspaceStore.shared.incoming = request
     }
 
     private func ensureSelectionIsValid() {
@@ -145,8 +149,7 @@ struct MainTabView: View {
                     awaitingFeatureDismiss = true
                     detachedFeature = nil
                 } else {
-                    LocationWorkspaceStore.shared.incoming = request
-                    detachedFeature = .location
+                    showLocationRequest(request)
                 }
             } catch {
                 showAlert(title: "Yêu cầu vị trí không hợp lệ", message: error.localizedDescription, showOk: true)

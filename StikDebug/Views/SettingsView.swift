@@ -13,6 +13,7 @@ private enum SettingsLinks {
 }
 
 struct SettingsView: View {
+    @ObservedObject private var signingReminder = SigningExpiryReminder.shared
     @StateObject private var onDevicePairing = OnDevicePairingService.shared
     @AppStorage(UserDefaults.Keys.txmOverride) private var overrideTXMDetection = false
     @AppStorage(UserDefaults.Keys.confirmExternalJITRequests) private var confirmExternalJITRequests = true
@@ -68,6 +69,30 @@ struct SettingsView: View {
                     Link(destination: SettingsLinks.githubStars) {
                         Label("Star on GitHub".localized, systemImage: "star")
                     }
+                }
+
+                Section {
+                    Toggle("Nhắc sắp hết hạn ký", isOn: Binding(
+                        get: { signingReminder.isEnabled },
+                        set: { signingReminder.setEnabled($0) }
+                    ))
+                    if let expiry = signingReminder.expiry {
+                        LabeledContent("Hạn ký VN", value: expiry.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    if signingReminder.isEnabled && !signingReminder.status.isEmpty {
+                        Text(signingReminder.status).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if signingReminder.isEnabled && signingReminder.permissionDenied {
+                        Button("Mở cài đặt thông báo") {
+                            if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Hạn ký ứng dụng")
+                } footer: {
+                    Text("Nhắc mỗi 3 giờ trong 24 giờ cuối. Sau khi gia hạn bằng AltStore, mở lại VN để cập nhật lịch.")
                 }
 
                 Section("Pairing File".localized) {
@@ -303,7 +328,7 @@ struct SettingsView: View {
         } else {
             txmLabel = processInfo.hasTXM ? "TXM" : "Non TXM".localized
         }
-        return "VN beta 2 · Phiên bản \(appVersion) • iOS \(UIDevice.current.systemVersion) • \(txmLabel)"
+        return "VN beta 3 · Phiên bản \(appVersion) • iOS \(UIDevice.current.systemVersion) • \(txmLabel)"
     }
 
     private func handleAudioKeepAliveChange(_ enabled: Bool) {

@@ -34,6 +34,17 @@ struct RestDurationSheet: View {
                         Text("Nhập số hợp lệ từ 0 giây đến 24 giờ. Ví dụ 5 phút hoặc 1,5 phút.").font(.footnote).foregroundStyle(.red)
                     }
                 }
+                Section("Chọn nhanh") {
+                    HStack {
+                        ForEach([1, 3, 5], id: \.self) { minutes in
+                            Button("\(minutes) phút") {
+                                onSave(Double(minutes * 60))
+                                dismiss()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
                 Section {
                     Text("Thời gian bắt đầu khi đến trạm. Tạm dừng bằng tay sẽ giữ nguyên phần thời gian còn lại.")
                         .font(.footnote).foregroundStyle(.secondary)

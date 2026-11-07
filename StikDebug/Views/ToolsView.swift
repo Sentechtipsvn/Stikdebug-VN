@@ -8,12 +8,13 @@
 import SwiftUI
 
 struct ToolsView: View {
+    @ObservedObject private var workspace = LocationWorkspaceStore.shared
+    @State private var path: [AppFeature] = []
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List(AppFeature.toolList) { tool in
-                NavigationLink {
-                    tool.destination
-                } label: {
+                NavigationLink(value: tool) {
                     Label {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(tool.toolTitle)
@@ -27,6 +28,10 @@ struct ToolsView: View {
                 }
             }
             .navigationTitle("Tools".localized)
+            .navigationDestination(for: AppFeature.self) { $0.destination }
+        }
+        .onChange(of: workspace.incoming?.id, initial: true) { _, id in
+            if id != nil && path != [.location] { path = [.location] }
         }
     }
 }
