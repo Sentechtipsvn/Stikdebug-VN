@@ -160,7 +160,7 @@ struct DeviceInfoView: View {
     
 
     var body: some View {
-        NavigationStack {
+        Group {
             List {
                 if !isPaired {
                     Section {

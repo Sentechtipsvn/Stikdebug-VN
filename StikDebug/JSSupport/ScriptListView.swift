@@ -38,108 +38,14 @@ struct ScriptListView: View {
 
 
     var body: some View {
-        NavigationStack {
-            List {
-                if isPickerMode {
-                    Section {
-                        Button {
-                            onSelectScript?(nil)
-                        } label: {
-                            Label("No Script".localized, systemImage: "nosign")
-                        }
-                    }
-                }
-
-                if filteredScripts.isEmpty {
-                    Section {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label(
-                                isPickerMode ? "No scripts available".localized : "No scripts found".localized,
-                                systemImage: "doc.text.magnifyingglass"
-                            )
-                            .foregroundStyle(.secondary)
-                            Text(isPickerMode ? "Import a file or choose None.".localized : "Tap New or Import to get started.".localized)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                } else {
-                    Section {
-                        ForEach(filteredScripts, id: \.self) { script in
-                            scriptRow(script)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    if !isPickerMode {
-                                        Button(role: .destructive) {
-                                            pendingDelete = script
-                                            showDeleteConfirmation = true
-                                        } label: { Label("Delete".localized, systemImage: "trash") }
-                                    }
-                                }
-                                .contextMenu {
-                                    Button { copyName(script) } label: {
-                                        Label("Copy Filename".localized, systemImage: "doc.on.doc")
-                                    }
-                                    Button { copyPath(script) } label: {
-                                        Label("Copy Path".localized, systemImage: "folder")
-                                    }
-                                    if !isPickerMode {
-                                        Button { saveDefaultScript(script) } label: {
-                                            Label("Set Default".localized, systemImage: "star")
-                                        }
-                                        Divider()
-                                        Button(role: .destructive) {
-                                            pendingDelete = script
-                                            showDeleteConfirmation = true
-                                        } label: { Label("Delete".localized, systemImage: "trash") }
-                                    }
-                                }
-                        }
-                    }
-                }
-            }
-            .listStyle(.insetGrouped)
-            .searchable(
-                text: $searchText,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search scripts…".localized
-            )
-            .navigationTitle(isPickerMode ? "Choose Script".localized : "Scripts".localized)
-            .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    if !isPickerMode {
-                        Button { showNewFileAlert = true } label: {
-                            Label("New".localized, systemImage: "doc.badge.plus")
-                        }
-                        Button { showImporter = true } label: {
-                            Label("Import".localized, systemImage: "tray.and.arrow.down")
-                        }
-                    }
-                }
-            }
-            .onAppear(perform: loadScripts)
-            .alert("New Script".localized, isPresented: $showNewFileAlert) {
-                TextField("Filename".localized, text: $newFileName)
-                Button("Create".localized, action: createNewScript)
-                Button("Cancel".localized, role: .cancel) { }
-            }
-            .alert("Delete Script?".localized, isPresented: $showDeleteConfirmation, presenting: pendingDelete) { script in
-                Button("Delete".localized, role: .destructive) { deleteScript(script) }
-                Button("Cancel".localized, role: .cancel) { pendingDelete = nil }
-            } message: { script in
-                Text("Xóa \(script.lastPathComponent)? Không thể hoàn tác thao tác này.")
-            }
-            .fileImporter(
-                isPresented: $showImporter,
-                allowedContentTypes: [UTType(filenameExtension: "js") ?? .plainText]
-            ) { result in
-                switch result {
-                case .success(let fileURL): importScript(from: fileURL)
-                case .failure(let error): presentError(title: "Import Failed".localized, message: error.localizedDescription)
-                }
+        Group {
+            if isPickerMode {
+                NavigationStack { scriptList }
+            } else {
+                scriptList
             }
         }
-                .overlay {
+        .overlay {
             if isBusy {
                 Color.black.opacity(0.35).ignoresSafeArea()
                 ProgressView("Working…".localized)
@@ -163,6 +69,108 @@ struct ScriptListView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(alertMessage)
+        }
+    }
+
+    private var scriptList: some View {
+        List {
+            if isPickerMode {
+                Section {
+                    Button {
+                        onSelectScript?(nil)
+                    } label: {
+                        Label("No Script".localized, systemImage: "nosign")
+                    }
+                }
+            }
+
+            if filteredScripts.isEmpty {
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label(
+                            isPickerMode ? "No scripts available".localized : "No scripts found".localized,
+                            systemImage: "doc.text.magnifyingglass"
+                        )
+                        .foregroundStyle(.secondary)
+                        Text(isPickerMode ? "Import a file or choose None.".localized : "Tap New or Import to get started.".localized)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } else {
+                Section {
+                    ForEach(filteredScripts, id: \.self) { script in
+                        scriptRow(script)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                if !isPickerMode {
+                                    Button(role: .destructive) {
+                                        pendingDelete = script
+                                        showDeleteConfirmation = true
+                                    } label: { Label("Delete".localized, systemImage: "trash") }
+                                }
+                            }
+                            .contextMenu {
+                                Button { copyName(script) } label: {
+                                    Label("Copy Filename".localized, systemImage: "doc.on.doc")
+                                }
+                                Button { copyPath(script) } label: {
+                                    Label("Copy Path".localized, systemImage: "folder")
+                                }
+                                if !isPickerMode {
+                                    Button { saveDefaultScript(script) } label: {
+                                        Label("Set Default".localized, systemImage: "star")
+                                    }
+                                    Divider()
+                                    Button(role: .destructive) {
+                                        pendingDelete = script
+                                        showDeleteConfirmation = true
+                                    } label: { Label("Delete".localized, systemImage: "trash") }
+                                }
+                            }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search scripts…".localized
+        )
+        .navigationTitle(isPickerMode ? "Choose Script".localized : "Scripts".localized)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if !isPickerMode {
+                    Button { showNewFileAlert = true } label: {
+                        Label("New".localized, systemImage: "doc.badge.plus")
+                    }
+                    Button { showImporter = true } label: {
+                        Label("Import".localized, systemImage: "tray.and.arrow.down")
+                    }
+                }
+            }
+        }
+        .onAppear(perform: loadScripts)
+        .alert("New Script".localized, isPresented: $showNewFileAlert) {
+            TextField("Filename".localized, text: $newFileName)
+            Button("Create".localized, action: createNewScript)
+            Button("Cancel".localized, role: .cancel) { }
+        }
+        .alert("Delete Script?".localized, isPresented: $showDeleteConfirmation, presenting: pendingDelete) { script in
+            Button("Delete".localized, role: .destructive) { deleteScript(script) }
+            Button("Cancel".localized, role: .cancel) { pendingDelete = nil }
+        } message: { script in
+            Text("Xóa \(script.lastPathComponent)? Không thể hoàn tác thao tác này.")
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [UTType(filenameExtension: "js") ?? .plainText]
+        ) { result in
+            switch result {
+            case .success(let fileURL): importScript(from: fileURL)
+            case .failure(let error): presentError(title: "Import Failed".localized, message: error.localizedDescription)
+            }
         }
     }
 

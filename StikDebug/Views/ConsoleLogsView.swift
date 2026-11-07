@@ -40,74 +40,72 @@ struct ConsoleLogsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if selectedConsoleTab == .idevice {
-                    jitLogsPane
-                } else {
-                    syslogLogsPane
-                }
-            }
-            .navigationTitle("Console".localized)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Picker("", selection: $selectedConsoleTab) {
-                        Text("App".localized).tag(ConsoleTab.idevice)
-                        Text("System".localized).tag(ConsoleTab.syslog)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 180)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        if selectedConsoleTab == .idevice {
-                            Button("Refresh".localized, systemImage: "arrow.clockwise") {
-                                Task { await loadIdeviceLogsAsync() }
-                            }
-                            Button("Clear".localized, systemImage: "trash", role: .destructive) {
-                                logManager.clearLogs()
-                            }
-                            Button("Copy Logs".localized, systemImage: "doc.on.doc") {
-                                copyJITLogs()
-                            }
-                            exportMenuOption
-                        } else {
-                            Button(syslogControlLabel, systemImage: syslogControlIcon) {
-                                toggleSyslogPlayback()
-                            }
-                            Button("Clear".localized, systemImage: "trash", role: .destructive) {
-                                systemLogStream.clear()
-                            }
-                            Button("Copy Logs".localized, systemImage: "doc.on.doc") {
-                                copySyslogToClipboard()
-                            }
-                            Button("Adjust Speed".localized, systemImage: "slider.horizontal.3") {
-                                showingSyslogSpeedSelector = true
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-            }
-            .alert(alertTitle, isPresented: $showingCustomAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(alertMessage)
-            }
-            .confirmationDialog("Syslog Speed".localized, isPresented: $showingSyslogSpeedSelector) {
-                ForEach(syslogIntervalOptions, id: \.self) { option in
-                    Button(intervalLabel(for: option)) {
-                        systemLogStream.updateInterval = option
-                    }
-                }
-                Button("Cancel".localized, role: .cancel) { }
-            } message: {
-                Text("Choose how quickly new relay entries appear.".localized)
+        Group {
+            if selectedConsoleTab == .idevice {
+                jitLogsPane
+            } else {
+                syslogLogsPane
             }
         }
-                .onDisappear {
+        .navigationTitle("Console".localized)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("", selection: $selectedConsoleTab) {
+                    Text("App".localized).tag(ConsoleTab.idevice)
+                    Text("System".localized).tag(ConsoleTab.syslog)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 180)
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    if selectedConsoleTab == .idevice {
+                        Button("Refresh".localized, systemImage: "arrow.clockwise") {
+                            Task { await loadIdeviceLogsAsync() }
+                        }
+                        Button("Clear".localized, systemImage: "trash", role: .destructive) {
+                            logManager.clearLogs()
+                        }
+                        Button("Copy Logs".localized, systemImage: "doc.on.doc") {
+                            copyJITLogs()
+                        }
+                        exportMenuOption
+                    } else {
+                        Button(syslogControlLabel, systemImage: syslogControlIcon) {
+                            toggleSyslogPlayback()
+                        }
+                        Button("Clear".localized, systemImage: "trash", role: .destructive) {
+                            systemLogStream.clear()
+                        }
+                        Button("Copy Logs".localized, systemImage: "doc.on.doc") {
+                            copySyslogToClipboard()
+                        }
+                        Button("Adjust Speed".localized, systemImage: "slider.horizontal.3") {
+                            showingSyslogSpeedSelector = true
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .alert(alertTitle, isPresented: $showingCustomAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
+        }
+        .confirmationDialog("Syslog Speed".localized, isPresented: $showingSyslogSpeedSelector) {
+            ForEach(syslogIntervalOptions, id: \.self) { option in
+                Button(intervalLabel(for: option)) {
+                    systemLogStream.updateInterval = option
+                }
+            }
+            Button("Cancel".localized, role: .cancel) { }
+        } message: {
+            Text("Choose how quickly new relay entries appear.".localized)
+        }
+        .onDisappear {
             systemLogStream.stop()
         }
         .onChange(of: systemLogStream.lastError) { _, newError in
@@ -487,7 +485,7 @@ struct ConsoleLogsView: View {
 
 struct ConsoleLogsView_Previews: PreviewProvider {
     static var previews: some View {
-        ConsoleLogsView()
+        NavigationStack { ConsoleLogsView() }
     }
 }
 

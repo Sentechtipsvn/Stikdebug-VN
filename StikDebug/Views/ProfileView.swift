@@ -134,7 +134,7 @@ struct ProfileView: View {
     
     
     var body: some View {
-        NavigationStack {
+        Group {
             List {
                 if working && entries.isEmpty {
                     Section {
