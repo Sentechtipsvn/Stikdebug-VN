@@ -30,9 +30,9 @@ struct ControllerValidation {
             .init(name: "A", coordinate: a), .init(name: "Trạm B", coordinate: b, dwellSeconds: dwell), .init(name: "C", coordinate: c)
         ], legs: [.init(coordinates: [a, b], expectedTravelTime: 1), .init(coordinates: [b, c], expectedTravelTime: 1)], speedKmh: 36)
     }
-    static func controller(_ clock: ManualClock, dwell: Double = 300) async throws -> RoutePlaybackController {
+    static func controller(_ clock: ManualClock, dwell: Double = 300, feedbackDelay: Duration = .seconds(3)) async throws -> RoutePlaybackController {
         session.stop(); device.reset()
-        let controller = RoutePlaybackController(clock: { clock.value }, automaticTicks: false)
+        let controller = RoutePlaybackController(clock: { clock.value }, automaticTicks: false, commandFeedbackDelay: feedbackDelay)
         try controller.load(example(dwell))
         expect(controller.phase == .ready && controller.displaySpeedKmh == 0, "Prepared route has zero current speed")
         controller.start()
@@ -51,6 +51,7 @@ struct ControllerValidation {
         try await suspensionAndSkip()
         try await editAtRest()
         try await commandOrdering()
+        try await interruptedConnection()
         try await workspacePersistence()
         print("PASS: \(checks) production controller/session/workspace checks (device boundary simulated)")
     }
@@ -157,7 +158,7 @@ struct ControllerValidation {
         let tickTask = Task { await p.advanceTick(at: clock.value) }
         try await waitUntil("set in flight") { p.isSending }
         p.pause()
-        expect(p.state == .running, "Pause waits for already submitted coordinate")
+        expect(p.pausePending && p.displaySpeedKmh == nil, "Pause reports pending immediately while waiting for the submitted coordinate")
         gate.signal(); await tickTask.value
         expect(p.state == .paused && near(p.progress.distance, 2), "Pause commits acknowledged position before holding")
         p.resume()
@@ -189,6 +190,42 @@ struct ControllerValidation {
         q.stop()
         try await waitUntil("pin clear") { !session.isActive && !q.isSending }
     }
+
+    static func interruptedConnection() async throws {
+        let clock = ManualClock()
+        let p = try await controller(clock, feedbackDelay: .milliseconds(50))
+        await tick(p, clock, at: 0.2)
+        let confirmedDistance = p.progress.distance
+        let confirmedPoint = RouteCoordinate(session.coordinate!)
+
+        device.failNextSet(3)
+        let gate = device.blockNextSet()
+        clock.value = 0.4
+        let tickTask = Task { await p.advanceTick(at: clock.value) }
+        try await waitUntil("slow connection feedback") { p.pausePending && p.message?.contains("chưa phản hồi") == true }
+        expect(p.isSending && p.displaySpeedKmh == nil, "A stalled set reports the delay while the device queue is busy")
+        expect(p.progress.distance == confirmedDistance, "A stalled set leaves progress at the last confirmed position")
+        expect(device.lastSet?.reconnect == false, "Movement commands do not attempt a new tunnel")
+        gate.signal()
+        await tickTask.value
+        expect(p.canResumeInterruptedRoute && p.progress.distance == confirmedDistance, "Failed set preserves progress for a reconnect")
+
+        device.failNextSet(3)
+        p.resume()
+        try await waitUntil("failed reconnect") { p.canResumeInterruptedRoute && !p.isSending }
+        expect(p.progress.distance == confirmedDistance, "A second connection failure preserves the same progress")
+
+        clock.value = 100
+        p.resume()
+        try await waitUntil("reconnect and continue") { p.state == .running }
+        expect(device.lastSet?.point == confirmedPoint && device.lastSet?.reconnect == true, "Resume sets the last confirmed coordinate with reconnection enabled")
+        expect(p.progress.distance == confirmedDistance, "Reconnect does not restart or advance the route")
+        await tick(p, clock, at: 100.1)
+        expect(near(p.progress.distance, confirmedDistance + 1), "Progress after reconnect excludes disconnected time")
+        p.stop()
+        try await waitUntil("clear after reconnect") { p.state == .ready && !session.isActive }
+    }
+
     static func workspacePersistence() async throws {
         let suite = "StikDebugVN.validation.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

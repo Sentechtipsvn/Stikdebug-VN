@@ -48,12 +48,15 @@ struct VNLocationSimulationView: View {
                             .tint(index == route.waypoints.count - 1 ? .red : .green)
                     }
                 } else if let pin { Marker(pin.name, coordinate: pin.coordinate.clCoordinate).tint(.red) }
-                if let coordinate = session.coordinate { Marker("Đang mô phỏng", coordinate: coordinate).tint(.blue) }
+                if let coordinate = session.coordinate {
+                    Marker(playback.state == .failed || playback.pausePending ? "Vị trí cuối đã xác nhận" : "Đang mô phỏng", coordinate: coordinate).tint(.blue)
+                }
             }
             .mapStyle(.standard(elevation: .realistic))
             .mapControls { MapCompass() }
             .onTapGesture { point in
-                guard canEdit, let coordinate = proxy.convert(point, from: .local) else { return }
+                guard canEdit, playback.route == nil, !workspace.draft.dirty,
+                      let coordinate = proxy.convert(point, from: .local) else { return }
                 playback.resetDraft()
                 workspace.discardDraft()
                 workspace.selectedPin = .init(name: "Điểm trên bản đồ", coordinate: RouteCoordinate(coordinate), source: "map")
@@ -211,10 +214,15 @@ struct VNLocationSimulationView: View {
     @ViewBuilder private var mainPlaybackButton: some View {
         switch playback.state {
         case .starting, .stopping: ProgressView().padding(.horizontal)
+        case .running where playback.pausePending:
+            ProgressView().accessibilityLabel("Đang tạm dừng").padding(.horizontal)
         case .running:
             Button("Tạm dừng", systemImage: "pause.fill") { playback.pause() }.buttonStyle(.borderedProminent)
         case .paused:
             Button("Tiếp tục", systemImage: "play.fill") { playback.resume() }.buttonStyle(.borderedProminent).disabled(playback.isSending)
+        case .failed where playback.canResumeInterruptedRoute:
+            Button("Thử tiếp tục", systemImage: "play.fill") { playback.resume() }
+                .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
         default:
             Button(playback.state == .finished ? "Chạy lại" : "Bắt đầu", systemImage: "play.fill") { playback.start() }
                 .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)

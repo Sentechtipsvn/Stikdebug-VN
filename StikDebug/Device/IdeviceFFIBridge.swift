@@ -820,7 +820,7 @@ enum LocationSimulationCommandQueue {
     static let shared = DispatchQueue(label: "com.stik.location-sim", qos: .userInitiated)
 }
 
-func simulate_location(_ deviceIP: String, _ latitude: Double, _ longitude: Double, _ pairingFile: String) -> Int32 {
+func simulate_location(_ deviceIP: String, _ latitude: Double, _ longitude: Double, _ pairingFile: String, reconnect: Bool = true) -> Int32 {
     if let locationSimulation = LocationSimulationState.locationSimulation {
         if let ffiError = location_simulation_set(locationSimulation, latitude, longitude) {
             idevice_error_free(ffiError)
@@ -830,6 +830,28 @@ func simulate_location(_ deviceIP: String, _ latitude: Double, _ longitude: Doub
         }
     }
 
+    // A movement tick must not open a new tunnel after a failed send.
+    guard reconnect else { return LocationSimulationStatus.locationSet }
+    let status = connectLocationSimulation(deviceIP, pairingFile)
+    guard status == LocationSimulationStatus.ok else { return status }
+    guard let client = LocationSimulationState.locationSimulation else {
+        LocationSimulationState.cleanup()
+        return LocationSimulationStatus.locationSimulation
+    }
+
+    if let error = location_simulation_set(client, latitude, longitude) {
+        idevice_error_free(error)
+        LocationSimulationState.cleanup()
+        return LocationSimulationStatus.locationSet
+    }
+
+    let conditions = deviceIP == DeviceConnectionContext.defaultTargetIPAddress ? ConnectionDiagnostics.networkConditions() : nil
+    let notice = ConnectionDiagnostics.connectedNotice(targetIP: deviceIP, conditions: conditions)
+    NotificationCenter.default.post(name: .locationTunnelConnected, object: notice)
+    return LocationSimulationStatus.ok
+}
+
+private func connectLocationSimulation(_ deviceIP: String, _ pairingFile: String) -> Int32 {
     var address = sockaddr_in()
     address.sin_family = sa_family_t(AF_INET)
     address.sin_port = in_port_t(RemotePairingPortResolver.resolve(targetIPAddress: deviceIP)).bigEndian
@@ -895,22 +917,15 @@ func simulate_location(_ deviceIP: String, _ latitude: Double, _ longitude: Doub
     }
 
     LocationSimulationState.remoteServer = nil
-
-    let locationSetError = location_simulation_set(
-        LocationSimulationState.locationSimulation,
-        latitude,
-        longitude
-    )
-    if let locationSetError {
-        idevice_error_free(locationSetError)
-        LocationSimulationState.cleanup()
-        return LocationSimulationStatus.locationSet
-    }
-
-    let conditions = deviceIP == DeviceConnectionContext.defaultTargetIPAddress ? ConnectionDiagnostics.networkConditions() : nil
-    let notice = ConnectionDiagnostics.connectedNotice(targetIP: deviceIP, conditions: conditions)
-    NotificationCenter.default.post(name: .locationTunnelConnected, object: notice)
     return LocationSimulationStatus.ok
+}
+
+func clear_simulated_location(_ deviceIP: String, _ pairingFile: String) -> Int32 {
+    if LocationSimulationState.locationSimulation == nil {
+        let status = connectLocationSimulation(deviceIP, pairingFile)
+        guard status == LocationSimulationStatus.ok else { return status }
+    }
+    return clear_simulated_location()
 }
 
 func clear_simulated_location() -> Int32 {
@@ -1017,3 +1032,4 @@ extension JITEnableContext {
         }
     }
 }
+

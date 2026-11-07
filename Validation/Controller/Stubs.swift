@@ -26,7 +26,8 @@ final class FakeDevice: @unchecked Sendable {
     private var nextCode: Int32 = 0
     private var clearCode: Int32 = 0
     private var gate: DispatchSemaphore?
-    func reset() { lock.lock(); defer { lock.unlock() }; events = []; nextCode = 0; clearCode = 0; gate = nil }
+    private var lastRequest: (point: RouteCoordinate, reconnect: Bool)?
+    func reset() { lock.lock(); defer { lock.unlock() }; events = []; nextCode = 0; clearCode = 0; gate = nil; lastRequest = nil }
     func failNextSet(_ code: Int32) { lock.lock(); defer { lock.unlock() }; nextCode = code }
     func failClear(_ code: Int32) { lock.lock(); defer { lock.unlock() }; clearCode = code }
     func blockNextSet() -> DispatchSemaphore {
@@ -34,10 +35,12 @@ final class FakeDevice: @unchecked Sendable {
         let value = DispatchSemaphore(value: 0); gate = value; return value
     }
     var recorded: [String] { lock.lock(); defer { lock.unlock() }; return events }
-    func set(_ latitude: Double, _ longitude: Double) -> Int32 {
+    var lastSet: (point: RouteCoordinate, reconnect: Bool)? { lock.lock(); defer { lock.unlock() }; return lastRequest }
+    func set(_ latitude: Double, _ longitude: Double, reconnect: Bool) -> Int32 {
         lock.lock()
         let result = nextCode; nextCode = 0
         let blocker = gate; gate = nil
+        lastRequest = (RouteCoordinate(latitude: latitude, longitude: longitude), reconnect)
         events.append("set-start")
         lock.unlock()
         if let blocker { _ = blocker.wait(timeout: .now() + 5) }
@@ -49,5 +52,7 @@ final class FakeDevice: @unchecked Sendable {
         events.append("clear"); return clearCode
     }
 }
-func simulate_location(_ ip: String, _ lat: Double, _ lon: Double, _ pairing: String) -> Int32 { FakeDevice.shared.set(lat, lon) }
-func clear_simulated_location() -> Int32 { FakeDevice.shared.clear() }
+func simulate_location(_ ip: String, _ lat: Double, _ lon: Double, _ pairing: String, reconnect: Bool = true) -> Int32 {
+    FakeDevice.shared.set(lat, lon, reconnect: reconnect)
+}
+func clear_simulated_location(_ ip: String, _ pairing: String) -> Int32 { FakeDevice.shared.clear() }
