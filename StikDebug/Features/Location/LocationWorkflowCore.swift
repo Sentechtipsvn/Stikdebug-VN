@@ -62,6 +62,7 @@ struct LocationRouteDraft: Codable, Identifiable, Equatable, Sendable {
     var rows: [RouteDraftRow] = [.init(), .init()]
     var speedKmh: Double = 30
     var mode: RouteSpeedMode = .fixed
+    var vehicle: RouteVehicle? = nil
     var basedOnRouteID: UUID?
     var dirty = false
     var originIsAutomatic = true
@@ -71,6 +72,7 @@ struct LocationRouteDraft: Codable, Identifiable, Equatable, Sendable {
         rows = route.waypoints.map { .init(point: $0, dwell: $0.dwellSeconds) }
         speedKmh = route.speedKmh
         mode = route.speedMode
+        vehicle = route.vehicle ?? .car
         basedOnRouteID = route.id
         originIsAutomatic = false
     }

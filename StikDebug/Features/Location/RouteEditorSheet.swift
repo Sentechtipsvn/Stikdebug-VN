@@ -11,16 +11,21 @@ struct RouteEditorSheet: View {
     @ObservedObject private var store = LocationWorkspaceStore.shared
     @ObservedObject private var playback = RoutePlaybackController.shared
     @StateObject private var currentLocation = CurrentLocationProvider()
+    @AppStorage("vn.location.preferredVehicle") private var preferredVehicle: RouteVehicle = .car
     let onApply: (SavedSimulationRoute) -> Void
     @State private var editing: RouteEditingRow?
     @State private var isCalculating = false
     @State private var error: String?
     @State private var task: Task<Void, Never>?
     @State private var confirmReplacement = false
+    @State private var motorcycleKey = MotorcycleRoutingKey.load()
+    @State private var editMotorcycleKey = false
+    @State private var keyInput = ""
 
     var body: some View {
         NavigationStack {
             Form {
+                vehicleSection
                 pointsSection
                 speedSection
                 if currentLocation.isLoading { ProgressView("Đang lấy điểm đi hiện tại…") }
@@ -45,6 +50,15 @@ struct RouteEditorSheet: View {
                 Button("Tạm dừng và tính lại") { calculate() }
                 Button("Hủy", role: .cancel) {}
             } message: { Text("Dùng vị trí đang mô phỏng làm điểm đi mới. Các trạm đã qua được bỏ khỏi phần đường còn lại; thời gian nghỉ còn lại ở trạm hiện tại được giữ.") }
+            .alert("Khóa API Geoapify", isPresented: $editMotorcycleKey) {
+                SecureField("Nhập khóa API", text: $keyInput)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                Button("Lưu") { saveMotorcycleKey() }
+                if motorcycleKey != nil {
+                    Button("Xóa khóa", role: .destructive) { removeMotorcycleKey() }
+                }
+                Button("Hủy", role: .cancel) { keyInput = "" }
+            } message: { Text("Khóa được lưu trong Keychain trên iPhone.") }
             .sheet(item: $editing) { item in
                 if item.editsDuration {
                     let seconds = store.draft.rows.first(where: { $0.id == item.id })?.dwell ?? 0
@@ -68,7 +82,53 @@ struct RouteEditorSheet: View {
     }
 
     private var canCalculate: Bool {
-        !isCalculating && !currentLocation.isLoading && store.draft.points != nil && store.draft.speedKmh.isFinite && (1...300).contains(store.draft.speedKmh)
+        !isCalculating && !currentLocation.isLoading && store.draft.points != nil && store.draft.speedKmh.isFinite &&
+            (1...300).contains(store.draft.speedKmh) && (vehicle != .motorcycle || motorcycleKey != nil)
+    }
+
+    private var vehicle: RouteVehicle { store.draft.vehicle ?? preferredVehicle }
+
+    private var vehicleSection: some View {
+        Section {
+            Picker("Phương tiện", selection: Binding(get: { vehicle }, set: { selection in
+                store.draft.vehicle = selection
+                store.draft.dirty = true
+                preferredVehicle = selection
+                error = nil
+            })) {
+                Text("Ô tô").tag(RouteVehicle.car)
+                Text("Xe máy").tag(RouteVehicle.motorcycle)
+            }.pickerStyle(.segmented)
+            if vehicle == .motorcycle {
+                Button(motorcycleKey == nil ? "Nhập khóa API Geoapify" : "Quản lý khóa API Geoapify", systemImage: "key") {
+                    keyInput = ""
+                    editMotorcycleKey = true
+                }
+            }
+        } header: {
+            Text("Phương tiện")
+        } footer: {
+            if vehicle == .motorcycle {
+                Text("Khi tính tuyến xe máy, app gửi tọa độ các điểm đã chọn đến Geoapify. Đường đi phụ thuộc dữ liệu OpenStreetMap.")
+            }
+        }.disabled(isCalculating)
+    }
+
+    private func saveMotorcycleKey() {
+        defer { keyInput = "" }
+        do {
+            motorcycleKey = try MotorcycleRoutingKey.save(keyInput)
+            error = nil
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func removeMotorcycleKey() {
+        defer { keyInput = "" }
+        do {
+            try MotorcycleRoutingKey.remove()
+            motorcycleKey = nil
+            error = nil
+        } catch { self.error = error.localizedDescription }
     }
 
     private var pointsSection: some View {
@@ -178,7 +238,8 @@ struct RouteEditorSheet: View {
                 let points: [RouteWaypoint]
                 if let anchor { points = try store.draft.rebased(at: anchor.coordinate, completedIDs: anchor.completedIDs) }
                 else { guard let selected = store.draft.points else { throw RouteDataError.invalid }; points = selected }
-                var route = try await VNRoutePlanner.calculate(waypoints: points, speedKmh: store.draft.speedKmh, mode: store.draft.mode)
+                var route = try await VNRoutePlanner.calculate(waypoints: points, speedKmh: store.draft.speedKmh,
+                                                               mode: store.draft.mode, vehicle: vehicle, motorcycleKey: motorcycleKey)
                 try Task.checkCancellation()
                 if let anchor, route.legs.first?.coordinates.first != anchor.coordinate {
                     route.legs[0].coordinates.insert(anchor.coordinate, at: 0)

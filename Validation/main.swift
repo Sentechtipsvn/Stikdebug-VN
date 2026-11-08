@@ -138,6 +138,44 @@ expect(rebased.count == 3 && rebased[0].coordinate == middle && rebased[1].name 
 expect(rebased.last?.name == "Đích", "Editing retains destination")
 expect(try JSONDecoder().decode(LocationRouteDraft.self, from: JSONEncoder().encode(draft)) == draft, "Draft persistence round trip")
 expect(LocationRouteDraft(route: saved).originIsAutomatic == false, "Opening saved route retains its selected origin")
+expect(LocationRouteDraft(route: saved).vehicle == .car, "Older saved routes use car routing when recalculated")
+expect(try JSONDecoder().decode(SavedSimulationRoute.self, from: JSONEncoder().encode(saved)).vehicle == nil,
+       "Legacy route decodes without a vehicle field")
+
+let motorcyclePoints = [
+    RouteWaypoint(name: "Start", coordinate: a),
+    RouteWaypoint(name: "Stop", coordinate: middle, dwellSeconds: 90),
+    RouteWaypoint(name: "End", coordinate: b)
+]
+let motorcycleRequest = try MotorcycleRouting.request(waypoints: motorcyclePoints, key: "test-only")
+let requestURL = URLComponents(url: motorcycleRequest.url!, resolvingAgainstBaseURL: false)!
+let query = Dictionary(uniqueKeysWithValues: requestURL.queryItems!.compactMap { item in item.value.map { (item.name, $0) } })
+expect(requestURL.scheme == "https" && requestURL.host == "api.geoapify.com", "Motorcycle requests target the HTTPS routing provider")
+expect(query["mode"] == "motorcycle" && query["intermediate_waypoint_mode"] == "stopover", "Motorcycle mode requests ordered stops")
+expect(query["waypoints"] == motorcyclePoints.map { "\($0.coordinate.latitude),\($0.coordinate.longitude)" }.joined(separator: "|"),
+       "Only ordered coordinates are sent to the route provider")
+expectThrows("Missing motorcycle key stops before networking") {
+    _ = try MotorcycleRouting.request(waypoints: motorcyclePoints, key: "")
+}
+let motorcycleFixture = Data("""
+    {"type":"FeatureCollection","features":[{
+      "geometry":{"type":"MultiLineString","coordinates":[
+        [[\(a.longitude),\(a.latitude)],[\(middle.longitude),\(middle.latitude)]],
+        [[\(middle.longitude),\(middle.latitude)],[\(b.longitude),\(b.latitude)]]
+      ]},
+      "properties":{"legs":[{"time":140},{"time":180}]}
+    }]}
+    """.utf8)
+let motorcycleLegs = try MotorcycleRouting.decode(motorcycleFixture, legCount: 2)
+expect(motorcycleLegs.map(\.coordinates) == [[a, middle], [middle, b]], "GeoJSON decodes lon/lat and preserves each stop")
+expect(motorcycleLegs.map(\.expectedTravelTime) == [140, 180], "Motorcycle leg times use the matching geometry")
+expectThrows("A response missing an intermediate leg is rejected") {
+    _ = try MotorcycleRouting.decode(motorcycleFixture, legCount: 3)
+}
+let motorcycleRoute = try SavedSimulationRoute(name: "Motorcycle", waypoints: motorcyclePoints, legs: motorcycleLegs, vehicle: .motorcycle).validated()
+let restoredMotorcycleRoute = try JSONDecoder().decode(SavedSimulationRoute.self, from: JSONEncoder().encode(motorcycleRoute))
+expect(LocationRouteDraft(route: restoredMotorcycleRoute).vehicle == .motorcycle &&
+       restoredMotorcycleRoute.waypoints[1].dwellSeconds == 90, "Saved motorcycle route retains profile and stop duration")
 expect(SimulationDisplayPhase.resting.showsZeroSpeed && SimulationDisplayPhase.paused.showsZeroSpeed && SimulationDisplayPhase.holding.showsZeroSpeed, "Stationary statuses have zero simulated speed")
 expect(!SimulationDisplayPhase.failed.showsZeroSpeed && !SimulationDisplayPhase.starting.showsZeroSpeed, "Unknown backend state does not invent a speed")
 for missing in ["stikdebugvn://receive-location", "stikdebugvn://receive-location?input=%20"] {

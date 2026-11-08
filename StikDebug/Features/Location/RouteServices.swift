@@ -83,8 +83,33 @@ final class RouteLibraryStore: ObservableObject {
 
 @MainActor
 enum VNRoutePlanner {
-    static func calculate(waypoints: [RouteWaypoint], speedKmh: Double, mode: RouteSpeedMode) async throws -> SavedSimulationRoute {
+    static func calculate(waypoints: [RouteWaypoint], speedKmh: Double, mode: RouteSpeedMode,
+                          vehicle: RouteVehicle, motorcycleKey: String?) async throws -> SavedSimulationRoute {
         guard (2...100).contains(waypoints.count) else { throw RouteDataError.invalid }
+        let legs: [RouteLegData]
+        switch vehicle {
+        case .car:
+            legs = try await carLegs(through: waypoints)
+        case .motorcycle:
+            guard let motorcycleKey else { throw MotorcycleRoutingError.missingKey }
+            legs = try await MotorcycleRouting.calculate(waypoints: waypoints, key: motorcycleKey)
+        }
+        var route = SavedSimulationRoute(name: "\(waypoints[0].name) → \(waypoints[waypoints.count - 1].name)", waypoints: waypoints,
+                                         legs: legs, speedKmh: speedKmh, speedMode: mode, vehicle: vehicle)
+        if mode == .road {
+            let coordinates = route.coordinates
+            let ways = (try? await fetchOpenStreetMapWays(for: coordinates.map(\.clCoordinate))) ?? []
+            try Task.checkCancellation()
+            let duration = legs.reduce(0) { $0 + $1.expectedTravelTime }
+            let fallback = max(1, duration > 0 ? RoutePath(coordinates: coordinates).totalDistance / duration : 13.4)
+            route.roadSpeeds = zip(coordinates, coordinates.dropFirst()).map {
+                max(1, nearestSpeedLimit(forSegmentFrom: $0.0.clCoordinate, to: $0.1.clCoordinate, using: ways) ?? fallback)
+            }
+        }
+        return try route.validated()
+    }
+
+    private static func carLegs(through waypoints: [RouteWaypoint]) async throws -> [RouteLegData] {
         var legs: [RouteLegData] = []
         for index in 0..<(waypoints.count - 1) {
             try Task.checkCancellation()
@@ -105,19 +130,7 @@ enum VNRoutePlanner {
             route.polyline.getCoordinates(&coordinates, range: NSRange(location: 0, length: coordinates.count))
             legs.append(.init(coordinates: coordinates.map(RouteCoordinate.init), expectedTravelTime: route.expectedTravelTime))
         }
-        var route = SavedSimulationRoute(name: "\(waypoints[0].name) → \(waypoints[waypoints.count - 1].name)", waypoints: waypoints, legs: legs, speedKmh: speedKmh, speedMode: mode)
-        // Keep the original road-speed option. It is fetched only when the person selects it.
-        if mode == .road {
-            let coordinates = route.coordinates
-            let ways = (try? await fetchOpenStreetMapWays(for: coordinates.map(\.clCoordinate))) ?? []
-            try Task.checkCancellation()
-            let duration = legs.reduce(0) { $0 + $1.expectedTravelTime }
-            let fallback = max(1, duration > 0 ? RoutePath(coordinates: coordinates).totalDistance / duration : 13.4)
-            route.roadSpeeds = zip(coordinates, coordinates.dropFirst()).map {
-                max(1, nearestSpeedLimit(forSegmentFrom: $0.0.clCoordinate, to: $0.1.clCoordinate, using: ways) ?? fallback)
-            }
-        }
-        return try route.validated()
+        return legs
     }
 }
 

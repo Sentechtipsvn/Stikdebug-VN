@@ -146,7 +146,12 @@ struct VNLocationSimulationView: View {
             if isImporting { ProgressView("Đang nhập tọa độ…") }
             if let route = playback.route {
                 HStack {
-                    Text(route.name).font(.subheadline).lineLimit(1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(route.name).font(.subheadline).lineLimit(1)
+                        if let vehicle = route.vehicle {
+                            Text(vehicle == .motorcycle ? "Xe máy" : "Ô tô").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                     Spacer()
                     Button("Lưu tuyến", systemImage: "square.and.arrow.down") { name = route.name; showSaveRoute = true }.font(.caption)
                 }
@@ -164,7 +169,14 @@ struct VNLocationSimulationView: View {
                     }
                 } else {
                     Text("Tốc độ đặt: theo dữ liệu đường").font(.caption)
-                    Link("© OpenStreetMap contributors · ODbL", destination: URL(string: "https://www.openstreetmap.org/copyright")!).font(.caption2)
+                }
+                if route.vehicle == .motorcycle || playback.speedMode == .road {
+                    HStack(spacing: 10) {
+                        if route.vehicle == .motorcycle {
+                            Link("Powered by Geoapify", destination: URL(string: "https://www.geoapify.com/")!)
+                        }
+                        Link("© OpenStreetMap contributors", destination: URL(string: "https://www.openstreetmap.org/copyright")!)
+                    }.font(.caption2)
                 }
                 if playback.isResting {
                     HStack {

@@ -69,6 +69,11 @@ enum RouteSpeedMode: String, Codable, CaseIterable, Sendable {
     case road
 }
 
+enum RouteVehicle: String, Codable, Sendable {
+    case car
+    case motorcycle
+}
+
 struct RouteLegData: Codable, Equatable, Sendable {
     var coordinates: [RouteCoordinate]
     var expectedTravelTime: Double
@@ -83,6 +88,7 @@ struct SavedSimulationRoute: Codable, Identifiable, Equatable, Sendable {
     var speedKmh: Double = 30
     var speedMode: RouteSpeedMode = .fixed
     var roadSpeeds: [Double] = []
+    var vehicle: RouteVehicle? = nil
 
     var coordinates: [RouteCoordinate] {
         legs.reduce(into: []) { result, leg in
