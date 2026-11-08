@@ -23,7 +23,7 @@ final class LocationSimulationSession: ObservableObject {
         }
     }
 
-    func startResending(at coordinate: CLLocationCoordinate2D, _ operation: @escaping (UUID) -> Void) {
+    func startResending(at coordinate: CLLocationCoordinate2D, immediately: Bool = false, _ operation: @escaping (UUID) -> Void) {
         start(at: coordinate)
         pauseResending()
         let token = resendGeneration.begin()
@@ -33,6 +33,7 @@ final class LocationSimulationSession: ObservableObject {
         }
         RunLoop.main.add(timer, forMode: .common)
         resendTimer = timer
+        if immediately { operation(token) }
     }
 
     func startRoute(at coordinate: CLLocationCoordinate2D, coordinates: [CLLocationCoordinate2D]) -> UUID {

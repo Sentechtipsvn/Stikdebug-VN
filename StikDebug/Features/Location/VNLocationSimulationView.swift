@@ -16,6 +16,32 @@ private enum LocationModal: Identifiable {
     }
 }
 
+private enum RouteConfirmation: Identifiable {
+    case newRoute, detour, discard, previous, importFile, pin(RouteWaypoint)
+
+    var id: String { title }
+    var title: String {
+        switch self {
+        case .newRoute: return "Tạo bản nháp mới?"
+        case .detour: return "Tạo nhánh dò mới?"
+        case .discard: return "Xóa bản nháp và tuyến đang xem?"
+        case .previous: return "Mở lại tuyến trước?"
+        case .importFile: return "Thay tuyến bằng tệp nhập?"
+        case .pin: return "Chuyển sang chọn vị trí?"
+        }
+    }
+    var message: String {
+        switch self {
+        case .newRoute: return "App sẽ thay bản nháp hiện tại. Tuyến đang chạy chỉ đổi khi Sếp áp dụng."
+        case .detour: return "App giữ tuyến và điểm đến để Sếp thử nhánh từ một điểm đi khác. Bản nháp chưa áp dụng sẽ được thay."
+        case .discard: return "Thao tác này bỏ bản nháp và tuyến đang hiển thị. Tuyến đã lưu vẫn có trong thư viện."
+        case .previous: return "App sẽ thay bản nháp và chuẩn bị tuyến trước từ đầu. Phiên mô phỏng hiện tại sẽ tắt nếu đang chạy."
+        case .importFile: return "Tệp hợp lệ sẽ thay bản nháp và tuyến đang hiển thị."
+        case .pin: return "Chọn vị trí này sẽ thay bản nháp và tuyến đang hiển thị."
+        }
+    }
+}
+
 struct VNLocationSimulationView: View {
     @ObservedObject private var playback = RoutePlaybackController.shared
     @ObservedObject private var session = LocationSimulationSession.shared
@@ -32,11 +58,16 @@ struct VNLocationSimulationView: View {
     @State private var error: String?
     @State private var bookmarks: [LocationBookmark] = []
     @State private var isImporting = false
+    @State private var confirmation: RouteConfirmation?
+    @State private var deferredConfirmation: RouteConfirmation?
+    @State private var showProbeOptions = false
+    @State private var selectingProbe = false
 
     private var pin: RouteWaypoint? { workspace.selectedPin }
     private var canDraft: Bool { !isImporting && ![.starting, .stopping].contains(playback.state) }
     private var pairingExists: Bool { FileManager.default.fileExists(atPath: PairingFileStore.prepareURL().path) }
     private var canEdit: Bool { !playback.isLocked && !isImporting }
+    private var hasRouteWork: Bool { playback.route != nil || workspace.draft.dirty }
 
     var body: some View {
         MapReader { proxy in
@@ -49,14 +80,24 @@ struct VNLocationSimulationView: View {
                     }
                 } else if let pin { Marker(pin.name, coordinate: pin.coordinate.clCoordinate).tint(.red) }
                 if let coordinate = session.coordinate {
-                    Marker(playback.state == .failed || playback.pausePending ? "Vị trí cuối đã xác nhận" : "Đang mô phỏng", coordinate: coordinate).tint(.blue)
+                    Marker(playback.state == .failed || playback.pausePending || playback.holdUnconfirmed ? "Vị trí cuối đã xác nhận" : "Đang mô phỏng", coordinate: coordinate).tint(.blue)
+                }
+                if let probe = playback.probeCoordinate {
+                    Marker("Mốc dò", systemImage: "scope", coordinate: probe.clCoordinate).tint(.orange)
                 }
             }
             .mapStyle(.standard(elevation: .realistic))
             .mapControls { MapCompass() }
             .onTapGesture { point in
-                guard canEdit, playback.route == nil, !workspace.draft.dirty,
-                      let coordinate = proxy.convert(point, from: .local) else { return }
+                guard let coordinate = proxy.convert(point, from: .local) else { return }
+                if selectingProbe {
+                    do {
+                        try playback.setProbe(near: RouteCoordinate(coordinate))
+                        selectingProbe = false
+                    } catch { self.error = error.localizedDescription }
+                    return
+                }
+                guard canEdit, !hasRouteWork else { return }
                 playback.resetDraft()
                 workspace.discardDraft()
                 workspace.selectedPin = .init(name: "Điểm trên bản đồ", coordinate: RouteCoordinate(coordinate), source: "map")
@@ -76,10 +117,18 @@ struct VNLocationSimulationView: View {
                     Button("Tạo / sửa tuyến", systemImage: "point.topleft.down.curvedto.point.bottomright.up") { openEditor() }.disabled(!canDraft)
                     Button("Tuyến đã lưu", systemImage: "tray.full") { modal = .library }.disabled(!canEdit)
                     Button("Dấu trang", systemImage: "bookmark.fill") { loadBookmarks(); modal = .bookmarks }.disabled(!canEdit)
-                    Button("Nhập GPX, KML, CSV…", systemImage: "square.and.arrow.down") { showImporter = true }.disabled(!canEdit)
-                    if playback.route != nil || workspace.draft.dirty {
-                        Button("Xóa bản nháp", systemImage: "arrow.counterclockwise") {
-                            playback.resetDraft(); workspace.discardDraft(); polyline = nil
+                    Button("Nhập GPX, KML, CSV…", systemImage: "square.and.arrow.down") {
+                        if hasRouteWork { confirmation = .importFile } else { showImporter = true }
+                    }.disabled(!canEdit)
+                    if let previous = playback.previousRoute {
+                        Button("Mở lại tuyến trước", systemImage: "arrow.uturn.backward") {
+                            confirmation = .previous
+                        }.disabled(!canDraft || previous.id == playback.route?.id)
+                    }
+                    if hasRouteWork {
+                        Button("Tạo tuyến mới", systemImage: "plus.square") { confirmation = .newRoute }.disabled(!canDraft)
+                        Button("Xóa bản nháp", systemImage: "trash", role: .destructive) {
+                            confirmation = .discard
                         }.disabled(!canEdit)
                     }
                 } label: { Image(systemName: "ellipsis.circle") }
@@ -87,12 +136,17 @@ struct VNLocationSimulationView: View {
         }
         .onAppear { loadBookmarks(); updateMap() }
         .onChange(of: playback.route?.legs) { _, _ in updateMap() }
+        .onChange(of: playback.route?.id) { _, _ in selectingProbe = false }
+        .onChange(of: confirmation?.id) { _, next in
+            if next == nil && modal == nil { receivePendingInput() }
+        }
         .task(id: workspace.incoming?.id) {
             await Task.yield()
             if !Task.isCancelled { receivePendingInput() }
         }
         .sheet(item: $modal, onDismiss: {
-            if workspace.incoming != nil { receivePendingInput() }
+            if let action = deferredConfirmation { deferredConfirmation = nil; confirmation = action }
+            else if workspace.incoming != nil { receivePendingInput() }
             else if let queued = nextModal { nextModal = nil; modal = queued }
         }) { item in
             switch item {
@@ -101,7 +155,7 @@ struct VNLocationSimulationView: View {
             case .editor:
                 RouteEditorSheet { _ in workspace.selectedPin = nil; modal = nil }
             case .library:
-                RouteLibrarySheet { route in
+                RouteLibrarySheet(confirmSelection: hasRouteWork) { route in
                     do { try playback.load(route); workspace.selectedPin = nil; workspace.didApply(route) }
                     catch { self.error = error.localizedDescription }
                 }
@@ -114,6 +168,18 @@ struct VNLocationSimulationView: View {
                 IncomingLocationSheet(request: request) { choice, point in receive(choice, point: point) }
             }
         }
+        .alert(confirmation?.title ?? "", isPresented: Binding(
+            get: { confirmation != nil }, set: { if !$0 { confirmation = nil } }
+        ), presenting: confirmation) { action in
+            Button("Xác nhận") { applyConfirmation(action) }
+            Button("Hủy", role: .cancel) {}
+        } message: { action in Text(action.message) }
+        .confirmationDialog("Dò tới mốc", isPresented: $showProbeOptions, titleVisibility: .visible) {
+            Button("2 km từ điểm đi") { setProbe(at: 2_000) }
+            Button("3 km từ điểm đi") { setProbe(at: 3_000) }
+            Button("Chọn trên đường màu xanh") { selectingProbe = true }
+            Button("Hủy", role: .cancel) {}
+        } message: { Text("Bot sẽ giữ vị trí khi tới mốc. Quãng đường tính dọc tuyến từ điểm đi đã chọn.") }
         .alert("Lưu tuyến", isPresented: $showSaveRoute) {
             TextField("Tên tuyến", text: $name)
             Button("Lưu") { saveRoute() }
@@ -142,7 +208,13 @@ struct VNLocationSimulationView: View {
                         .accessibilityLabel("Tốc độ mô phỏng \(Int(speed.rounded())) ki lô mét một giờ")
                 }
             }
-            if let message = playback.message { Text(message).font(.caption).foregroundStyle(playback.state == .failed ? .red : .secondary) }
+            if let message = playback.message {
+                Text(message).font(.caption).foregroundStyle(playback.state == .failed || playback.holdUnconfirmed ? .red : .secondary)
+            }
+            if (playback.isHoldingProbe || playback.holdUnconfirmed), let time = playback.lastConfirmedAt {
+                Text("Xác nhận lần cuối \(time.formatted(date: .omitted, time: .standard))")
+                    .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+            }
             if isImporting { ProgressView("Đang nhập tọa độ…") }
             if let route = playback.route {
                 HStack {
@@ -195,6 +267,7 @@ struct VNLocationSimulationView: View {
                     mainPlaybackButton
                     Button("Sửa tuyến") { openEditor() }.buttonStyle(.bordered).disabled(!canDraft)
                 }.font(.subheadline)
+                probeControls
             } else {
                 if let pin {
                     Text(pin.name).font(.subheadline.weight(.semibold)).lineLimit(1)
@@ -216,6 +289,32 @@ struct VNLocationSimulationView: View {
         }
     }
 
+    @ViewBuilder private var probeControls: some View {
+        if selectingProbe {
+            HStack {
+                Text("Chạm đường màu xanh để đặt mốc.").font(.caption)
+                Spacer()
+                Button("Hủy") { selectingProbe = false }
+            }
+        } else {
+            HStack(spacing: 8) {
+                Button("Đổi nhánh từ đây", systemImage: "arrow.triangle.branch") {
+                    if workspace.draft.replacement == .detour { modal = .editor }
+                    else { confirmation = .detour }
+                }.disabled(!canDraft)
+                Button("Dò tới mốc", systemImage: "scope") { showProbeOptions = true }
+                    .disabled(!canDraft)
+            }.font(.caption).buttonStyle(.bordered)
+            if let distance = playback.probeDistance {
+                HStack {
+                    Text(String(format: "Mốc %.2f km từ điểm đi", distance / 1_000))
+                    Spacer()
+                    Button("Bỏ mốc") { playback.clearProbe() }
+                }.font(.caption)
+            }
+        }
+    }
+
     @ViewBuilder private var returnGPSButton: some View {
         if session.isActive || playback.isLocked || playback.state == .failed {
             Button("Về GPS thật", role: .destructive) { playback.stop() }.buttonStyle(.bordered)
@@ -224,20 +323,59 @@ struct VNLocationSimulationView: View {
     }
 
     @ViewBuilder private var mainPlaybackButton: some View {
-        switch playback.state {
-        case .starting, .stopping: ProgressView().padding(.horizontal)
-        case .running where playback.pausePending:
-            ProgressView().accessibilityLabel("Đang tạm dừng").padding(.horizontal)
-        case .running:
-            Button("Tạm dừng", systemImage: "pause.fill") { playback.pause() }.buttonStyle(.borderedProminent)
-        case .paused:
-            Button("Tiếp tục", systemImage: "play.fill") { playback.resume() }.buttonStyle(.borderedProminent).disabled(playback.isSending)
-        case .failed where playback.canResumeInterruptedRoute:
-            Button("Thử tiếp tục", systemImage: "play.fill") { playback.resume() }
+        if playback.holdUnconfirmed {
+            Button("Thử giữ lại", systemImage: "location.circle") { playback.refreshHeldCoordinate() }
                 .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
-        default:
-            Button(playback.state == .finished ? "Chạy lại" : "Bắt đầu", systemImage: "play.fill") { playback.start() }
-                .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
+        } else {
+            switch playback.state {
+            case .starting, .stopping: ProgressView().padding(.horizontal)
+            case .running where playback.pausePending:
+                ProgressView().accessibilityLabel("Đang tạm dừng").padding(.horizontal)
+            case .running:
+                Button("Tạm dừng", systemImage: "pause.fill") { playback.pause() }.buttonStyle(.borderedProminent)
+            case .paused:
+                Button("Tiếp tục", systemImage: "play.fill") { playback.resume() }.buttonStyle(.borderedProminent).disabled(playback.isSending)
+            case .failed where playback.canResumeInterruptedRoute:
+                Button("Thử tiếp tục", systemImage: "play.fill") { playback.resume() }
+                    .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
+            default:
+                Button(playback.state == .finished ? "Chạy lại" : "Bắt đầu", systemImage: "play.fill") { playback.start() }
+                    .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
+            }
+        }
+    }
+
+    private func setProbe(at distance: Double) {
+        do { try playback.setProbe(at: distance) }
+        catch { self.error = error.localizedDescription }
+    }
+
+    private func applyConfirmation(_ action: RouteConfirmation) {
+        switch action {
+        case .newRoute, .detour:
+            guard canDraft else { return }
+            let replacement: RouteDraftReplacement
+            if case .detour = action { replacement = .detour } else { replacement = .newRoute }
+            workspace.draft = .init(replacement: replacement, from: playback.route)
+            modal = .editor
+        case .discard:
+            guard canEdit else { return }
+            playback.resetDraft()
+            workspace.discardDraft()
+            polyline = nil
+        case .previous:
+            guard canDraft, let previous = playback.previousRoute else { return }
+            Task {
+                do {
+                    try await playback.replaceRoute(with: previous)
+                    workspace.didApply(previous)
+                    workspace.selectedPin = nil
+                } catch { self.error = error.localizedDescription }
+            }
+        case .importFile:
+            if canEdit { showImporter = true }
+        case .pin(let point):
+            applyPinSelection(point)
         }
     }
 
@@ -247,7 +385,7 @@ struct VNLocationSimulationView: View {
     }
 
     private func receivePendingInput() {
-        guard let request = workspace.incoming else { return }
+        guard confirmation == nil, deferredConfirmation == nil, let request = workspace.incoming else { return }
         if modal != nil {
             nextModal = nil
             modal = nil
@@ -284,6 +422,12 @@ struct VNLocationSimulationView: View {
     }
 
     private func choosePin(_ point: RouteWaypoint) {
+        guard canEdit else { return }
+        if hasRouteWork { deferredConfirmation = .pin(point) }
+        else { applyPinSelection(point) }
+    }
+
+    private func applyPinSelection(_ point: RouteWaypoint) {
         guard canEdit else { return }
         playback.resetDraft()
         workspace.discardDraft()
@@ -325,7 +469,7 @@ struct VNLocationSimulationView: View {
                 do {
                     let points = try await Task.detached { try CoordinateImportParser.parse(url: url).map(RouteCoordinate.init) }.value
                     guard let first = points.first, let last = points.last else { throw RouteDataError.invalid }
-                    if points.count == 1 { isImporting = false; choosePin(.init(name: url.deletingPathExtension().lastPathComponent, coordinate: first, source: "import")); return }
+                    if points.count == 1 { isImporting = false; applyPinSelection(.init(name: url.deletingPathExtension().lastPathComponent, coordinate: first, source: "import")); return }
                     let route = SavedSimulationRoute(name: url.deletingPathExtension().lastPathComponent, waypoints: [.init(name: "Điểm đi", coordinate: first, source: "import"), .init(name: "Điểm đến", coordinate: last, source: "import")], legs: [.init(coordinates: points, expectedTravelTime: RoutePath(coordinates: points).totalDistance / 13.4)])
                     try playback.load(route)
                     workspace.selectedPin = nil

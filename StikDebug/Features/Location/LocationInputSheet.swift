@@ -6,6 +6,7 @@ struct LocationInputSheet: View {
     let title: String
     let onSelect: (RouteWaypoint) -> Void
     private let initialInput: String
+    private let allowDeviceLocation: Bool
     @StateObject private var deviceLocation = CurrentLocationProvider()
     @StateObject private var completer = LocationSearchCompleter()
     @State private var text = ""
@@ -19,10 +20,11 @@ struct LocationInputSheet: View {
     @State private var requestID = UUID()
     @State private var task: Task<Void, Never>?
 
-    init(title: String, initialInput: String = "", onSelect: @escaping (RouteWaypoint) -> Void) {
+    init(title: String, initialInput: String = "", allowDeviceLocation: Bool = true, onSelect: @escaping (RouteWaypoint) -> Void) {
         self.title = title
         self.initialInput = initialInput
         self.onSelect = onSelect
+        self.allowDeviceLocation = allowDeviceLocation
         _text = State(initialValue: initialInput)
     }
 
@@ -99,16 +101,20 @@ struct LocationInputSheet: View {
                     }
                 }
                 Section("Nguồn vị trí") {
-                    Button("Lấy vị trí thiết bị", systemImage: "location.fill") { deviceLocation.request() }
-                        .disabled(deviceLocation.isLoading)
-                    if let coordinate = LocationSimulationSession.shared.coordinate {
-                        Button("Vị trí đang mô phỏng", systemImage: "location.circle") {
-                            candidate = .init(name: "Vị trí đang mô phỏng", coordinate: RouteCoordinate(coordinate), source: "simulated")
+                    if allowDeviceLocation {
+                        Button("Lấy vị trí thiết bị", systemImage: "location.fill") { deviceLocation.request() }
+                            .disabled(deviceLocation.isLoading)
+                        if let coordinate = LocationSimulationSession.shared.coordinate {
+                            Button("Vị trí đang mô phỏng", systemImage: "location.circle") {
+                                candidate = .init(name: "Vị trí đang mô phỏng", coordinate: RouteCoordinate(coordinate), source: "simulated")
+                            }
                         }
                     }
                     Button("Chọn trên bản đồ", systemImage: "map") { showMap = true }
-                    Text("Khi đang mô phỏng, vị trí thiết bị có thể là tọa độ giả. Không coi đây là GPS thực.")
-                        .font(.caption).foregroundStyle(.secondary)
+                    if allowDeviceLocation {
+                        Text("Khi đang mô phỏng, vị trí thiết bị có thể là tọa độ giả. Không coi đây là GPS thực.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
                 Section("Dấu trang") {
                     if bookmarks.isEmpty { Text("Chưa có dấu trang trong bản cài này.").foregroundStyle(.secondary) }

@@ -166,6 +166,37 @@ struct RoutePath: Sendable {
         let length = cumulativeDistances[i + 1] - cumulativeDistances[i]
         return coordinates[i].interpolated(to: coordinates[i + 1], fraction: length > 0 ? (distance - cumulativeDistances[i]) / length : 0)
     }
+
+    func nearestDistance(to coordinate: RouteCoordinate, within tolerance: Double) -> Double? {
+        guard coordinates.count >= 2, coordinate.isValid else { return nil }
+        let longitudeScale = cos(coordinate.latitude * .pi / 180)
+        var bestError = tolerance
+        var bestDistance: Double?
+        for index in 0..<(coordinates.count - 1) {
+            let a = coordinates[index]
+            let b = coordinates[index + 1]
+            let east = longitudeOffset(from: a.longitude, to: b.longitude) * longitudeScale
+            let north = b.latitude - a.latitude
+            let lengthSquared = east * east + north * north
+            guard lengthSquared > 0 else { continue }
+            let offsetEast = longitudeOffset(from: a.longitude, to: coordinate.longitude) * longitudeScale
+            let offsetNorth = coordinate.latitude - a.latitude
+            let fraction = min(1, max(0, (offsetEast * east + offsetNorth * north) / lengthSquared))
+            let error = a.interpolated(to: b, fraction: fraction).distance(to: coordinate)
+            if error <= bestError {
+                bestError = error
+                bestDistance = cumulativeDistances[index] + fraction * (cumulativeDistances[index + 1] - cumulativeDistances[index])
+            }
+        }
+        return bestDistance
+    }
+
+    private func longitudeOffset(from origin: Double, to longitude: Double) -> Double {
+        let offset = longitude - origin
+        if offset > 180 { return offset - 360 }
+        if offset < -180 { return offset + 360 }
+        return offset
+    }
 }
 
 struct RouteDwell: Equatable, Sendable {
@@ -192,7 +223,7 @@ struct RouteProgress: Sendable {
                 time -= consumed
                 if time <= 0 { break }
             }
-            if nextStop < stops.count {
+            if nextStop < stops.count, stops[nextStop].distance <= totalDistance {
                 let stop = stops[nextStop]
                 let travelTime = max(0, stop.distance - distance) / speed
                 if travelTime <= time {

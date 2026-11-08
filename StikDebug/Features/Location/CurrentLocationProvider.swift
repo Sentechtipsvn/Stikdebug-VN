@@ -7,9 +7,11 @@ final class CurrentLocationProvider: NSObject, ObservableObject, CLLocationManag
     @Published private(set) var result: RouteWaypoint?
     @Published private(set) var error: String?
     @Published private(set) var isLoading = false
+    private(set) var horizontalAccuracy: CLLocationAccuracy?
     private let manager = CLLocationManager()
     private var timeout: Task<Void, Never>?
     private var requestedAt = Date()
+    private var freshAfter: Date?
 
     override init() {
         super.init()
@@ -17,10 +19,12 @@ final class CurrentLocationProvider: NSObject, ObservableObject, CLLocationManag
         manager.desiredAccuracy = kCLLocationAccuracyBest
     }
 
-    func request() {
+    func request(freshAfter: Date? = nil) {
         cancel()
         result = nil
+        horizontalAccuracy = nil
         error = nil
+        self.freshAfter = freshAfter
         requestedAt = Date()
         isLoading = true
         timeout = Task { [weak self] in
@@ -30,7 +34,7 @@ final class CurrentLocationProvider: NSObject, ObservableObject, CLLocationManag
         }
         switch manager.authorizationStatus {
         case .notDetermined: manager.requestWhenInUseAuthorization()
-        case .authorizedAlways, .authorizedWhenInUse: manager.requestLocation()
+        case .authorizedAlways, .authorizedWhenInUse: startReading()
         default: finish(error: "Chưa được cấp quyền vị trí. Hãy bật quyền cho StikDebug VN trong Cài đặt.")
         }
     }
@@ -47,11 +51,16 @@ final class CurrentLocationProvider: NSObject, ObservableObject, CLLocationManag
         self.error = error
     }
 
+    private func startReading() {
+        if freshAfter != nil { manager.startUpdatingLocation() }
+        else { manager.requestLocation() }
+    }
+
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor [weak self] in
             guard let self, self.isLoading else { return }
             switch manager.authorizationStatus {
-            case .authorizedAlways, .authorizedWhenInUse: manager.requestLocation()
+            case .authorizedAlways, .authorizedWhenInUse: self.startReading()
             case .denied, .restricted: self.finish(error: "Quyền vị trí bị từ chối. Sếp có thể chọn vị trí bằng link, Dấu trang hoặc bản đồ.")
             default: break
             }
@@ -61,9 +70,15 @@ final class CurrentLocationProvider: NSObject, ObservableObject, CLLocationManag
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         Task { @MainActor [weak self] in
             guard let self, self.isLoading, let location = locations.last else { return }
-            guard location.horizontalAccuracy >= 0, location.horizontalAccuracy <= 300,
-                  location.timestamp.timeIntervalSince(self.requestedAt) >= -5 else { manager.requestLocation(); return }
             let simulated = location.sourceInformation?.isSimulatedBySoftware == true || LocationSimulationSession.shared.isActive
+            let oldest = self.freshAfter ?? self.requestedAt.addingTimeInterval(-5)
+            let maxAccuracy = self.freshAfter == nil ? 300.0 : 50.0
+            guard location.horizontalAccuracy >= 0, location.horizontalAccuracy <= maxAccuracy, location.timestamp >= oldest,
+                  self.freshAfter == nil || !simulated else {
+                if self.freshAfter == nil { manager.requestLocation() }
+                return
+            }
+            self.horizontalAccuracy = location.horizontalAccuracy
             self.result = RouteWaypoint(name: simulated ? "Vị trí thiết bị (đang mô phỏng)" : "Vị trí thiết bị", coordinate: RouteCoordinate(location.coordinate), source: simulated ? "simulated" : "device")
             self.finish(error: nil)
         }
@@ -72,7 +87,10 @@ final class CurrentLocationProvider: NSObject, ObservableObject, CLLocationManag
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         Task { @MainActor [weak self] in
             guard let self, self.isLoading else { return }
-            if let error = error as? CLError, error.code == .locationUnknown { manager.requestLocation(); return }
+            if let error = error as? CLError, error.code == .locationUnknown {
+                if self.freshAfter == nil { manager.requestLocation() }
+                return
+            }
             self.finish(error: error.localizedDescription)
         }
     }

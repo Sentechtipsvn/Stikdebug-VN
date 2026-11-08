@@ -57,6 +57,10 @@ struct RouteDraftRow: Codable, Identifiable, Equatable, Sendable {
     var dwell: Double = 0
 }
 
+enum RouteDraftReplacement: String, Codable, Sendable {
+    case newRoute, detour
+}
+
 struct LocationRouteDraft: Codable, Identifiable, Equatable, Sendable {
     var id = UUID()
     var rows: [RouteDraftRow] = [.init(), .init()]
@@ -66,6 +70,7 @@ struct LocationRouteDraft: Codable, Identifiable, Equatable, Sendable {
     var basedOnRouteID: UUID?
     var dirty = false
     var originIsAutomatic = true
+    var replacement: RouteDraftReplacement? = nil
 
     init() {}
     init(route: SavedSimulationRoute) {
@@ -74,6 +79,14 @@ struct LocationRouteDraft: Codable, Identifiable, Equatable, Sendable {
         mode = route.speedMode
         vehicle = route.vehicle ?? .car
         basedOnRouteID = route.id
+        originIsAutomatic = false
+    }
+
+    init(replacement: RouteDraftReplacement, from route: SavedSimulationRoute?) {
+        if let route { self.init(route: route) } else { self.init() }
+        self.replacement = replacement
+        rows = [.init(), .init(point: replacement == .detour ? route?.waypoints.last : nil)]
+        dirty = true
         originIsAutomatic = false
     }
 
@@ -108,11 +121,17 @@ enum LocationWorkflowError: LocalizedError {
     case noDestination
     case invalidRequest
     case busy
+    case gpsNotRestored
+    case probeOutsideRoute
+    case probeAlreadyPassed
     var errorDescription: String? {
         switch self {
         case .noDestination: return "Hãy chọn điểm đến trước khi thêm điểm dừng."
         case .invalidRequest: return "Yêu cầu vị trí không hợp lệ. Hãy chia sẻ một địa điểm hoặc mở phím tắt không có đầu vào để tạo tuyến."
         case .busy: return "Đang xử lý lệnh vị trí. Vui lòng chờ một chút rồi thử lại."
+        case .gpsNotRestored: return "Thiết bị chưa xác nhận đã tắt mô phỏng. Kiểm tra kết nối rồi thử lại."
+        case .probeOutsideRoute: return "Mốc nằm ngoài tuyến. Hãy chọn một vị trí trên phần đường màu xanh."
+        case .probeAlreadyPassed: return "Bot đã đi qua mốc này. Hãy chọn mốc phía trước."
         }
     }
 }

@@ -52,6 +52,8 @@ struct ControllerValidation {
         try await editAtRest()
         try await commandOrdering()
         try await interruptedConnection()
+        try await probeAndHold()
+        try await detourReplacement()
         try await workspacePersistence()
         print("PASS: \(checks) production controller/session/workspace checks (device boundary simulated)")
     }
@@ -257,5 +259,67 @@ struct ControllerValidation {
         store.receiveDestination(.init(name: "Đích đã đổi", coordinate: c), playback: p)
         expect(store.draft.rows.count == 3 && store.draft.rows[1].point?.name == "Trạm B", "Sharing destination preserves stops of a prepared route")
         expect(store.draft.rows[1].dwell == 300, "Sharing destination preserves prepared dwell configuration")
+    }
+
+    static func probeAndHold() async throws {
+        let clock = ManualClock()
+        let p = try await controller(clock)
+        try p.setProbe(at: 3)
+        await tick(p, clock, at: 1)
+        expect(p.isHoldingProbe && p.progress.distance == 3, "Playback clamps to the exact probe distance")
+        expect(p.progress.nextStop == 0 && p.progress.dwellRemaining == 0, "Probe does not consume a future stop")
+        expect(RouteCoordinate(session.coordinate!) == p.probeCoordinate, "Device session holds the acknowledged probe coordinate")
+        let firstAcknowledgement = p.lastConfirmedAt
+        let oldStarts = device.recorded.filter { $0 == "set-start" }.count
+        device.failNextSet(3)
+        let gate = device.blockNextSet()
+        p.refreshHeldCoordinate()
+        try await waitUntil("held set in flight") { device.recorded.filter { $0 == "set-start" }.count > oldStarts }
+        p.refreshHeldCoordinate()
+        gate.signal()
+        try await waitUntil("held set failed") { p.holdUnconfirmed && !p.isSending }
+        expect(device.recorded.filter { $0 == "set-start" }.count == oldStarts + 1, "Hold cannot queue another send while the first is blocked")
+        expect(p.isHoldingProbe && p.displaySpeedKmh == nil && p.lastConfirmedAt == firstAcknowledgement,
+               "A failed resend preserves the last confirmed position and time")
+        p.resume()
+        expect(p.state == .paused, "A failed hold requires an explicit retry before resuming")
+        p.refreshHeldCoordinate()
+        try await waitUntil("held set acknowledged") { !p.holdUnconfirmed && !p.isSending }
+        expect(device.lastSet?.reconnect == true && device.lastSet?.point == p.probeCoordinate,
+               "Retry reconnects and sends the same probe position")
+        expect(p.isHoldingProbe && p.progress.distance == 3 && p.lastConfirmedAt! >= firstAcknowledgement!,
+               "Retry holds instead of advancing")
+        p.resume()
+        expect(p.state == .running && p.probeDistance == nil, "Resume consumes the reached probe")
+        await tick(p, clock, at: 1.5)
+        expect(p.isResting && p.restName == "Trạm B", "Original timed stop remains after the probe")
+        p.stop()
+        try await waitUntil("clear probe") { p.state == .ready && !session.isActive }
+    }
+
+    static func detourReplacement() async throws {
+        let clock = ManualClock()
+        let p = try await controller(clock)
+        let original = p.route!
+        var draft = LocationRouteDraft(replacement: .detour, from: original)
+        expect(draft.rows.first?.point == nil && draft.rows.last?.point == original.waypoints.last && !draft.originIsAutomatic,
+               "Detour retains the destination and waits for a chosen origin")
+        let chosen = RouteCoordinate(latitude: 10.00015, longitude: 106)
+        draft.rows[0].point = .init(name: "Chosen origin", coordinate: chosen)
+        let points = draft.points!
+        let new = SavedSimulationRoute(name: "Detour", waypoints: points, legs: [.init(coordinates: [chosen, c], expectedTravelTime: 1)])
+        device.failClear(8)
+        do {
+            try await p.replaceRoute(with: new)
+            fatalError("Applied detour even though the device failed to clear simulation")
+        } catch LocationWorkflowError.gpsNotRestored {
+            expect(p.route == original && session.isActive && p.previousRoute == nil, "Clear failure keeps the old route and held coordinate")
+        }
+        device.failClear(0)
+        try await p.replaceRoute(with: new)
+        expect(p.route?.waypoints.first?.coordinate == chosen && p.previousRoute == original, "Confirmed detour uses chosen origin and retains A")
+        expect(p.state == .ready && !session.isActive, "Detour is prepared after the old location is cleared")
+        try await p.replaceRoute(with: original)
+        expect(p.route == original && p.previousRoute == new, "Previous route can be reopened without losing the other branch")
     }
 }

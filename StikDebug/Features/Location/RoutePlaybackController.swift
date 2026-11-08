@@ -36,6 +36,10 @@ final class RoutePlaybackController: ObservableObject {
     @Published private(set) var message: String?
     @Published private(set) var isSending = false
     @Published private(set) var pausePending = false
+    @Published private(set) var previousRoute: SavedSimulationRoute?
+    @Published private(set) var probeDistance: Double?
+    @Published private(set) var holdUnconfirmed = false
+    @Published private(set) var lastConfirmedAt: Date?
     @Published var speedKmh: Double = 30 {
         didSet { if speedKmh.isFinite { route?.speedKmh = min(300, max(1, speedKmh)) } }
     }
@@ -65,6 +69,7 @@ final class RoutePlaybackController: ObservableObject {
     }
 
     var isLocked: Bool { [.starting, .running, .paused, .stopping].contains(state) || isSending }
+    var needsLocationRestore: Bool { session.isActive || isLocked || state == .failed }
     var hasActiveRoute: Bool { [.running, .paused].contains(state) && route != nil }
     var isResting: Bool { progress.dwellRemaining > 0 && [.running, .paused].contains(state) }
     var canResumeInterruptedRoute: Bool { state == .failed && needsRouteReconnect && route != nil && session.coordinate != nil }
@@ -82,13 +87,15 @@ final class RoutePlaybackController: ObservableObject {
         }
     }
     var statusTitle: String {
+        if holdUnconfirmed { return "Chưa xác nhận giữ vị trí" }
         if pausePending { return "Đang tạm dừng…" }
+        if isHoldingProbe { return "Đã tới mốc dò — đang giữ vị trí" }
         if state == .finished { return "Đã đến — đang giữ vị trí" }
         if phase == .resting { return "Đang nghỉ tại \(restName ?? "trạm")" }
         return phase.title
     }
     var displaySpeedKmh: Double? {
-        if pausePending { return nil }
+        if pausePending || holdUnconfirmed { return nil }
         if phase == .moving { return speedMetersPerSecond * 3.6 }
         return phase.showsZeroSpeed ? 0 : nil
     }
@@ -100,6 +107,25 @@ final class RoutePlaybackController: ObservableObject {
     }
     var fractionComplete: Double { path.totalDistance > 0 ? min(1, progress.distance / path.totalDistance) : 0 }
     var totalDistance: Double { path.totalDistance }
+    var isHoldingProbe: Bool {
+        guard state == .paused, let probeDistance else { return false }
+        return progress.distance >= probeDistance
+    }
+    var probeCoordinate: RouteCoordinate? { probeDistance.flatMap { path.coordinate(at: $0) } }
+
+    func setProbe(at distance: Double) throws {
+        guard !isSending, state != .starting, state != .stopping else { throw LocationWorkflowError.busy }
+        guard distance.isFinite, distance > 0, distance <= totalDistance else { throw LocationWorkflowError.probeOutsideRoute }
+        if state != .finished && distance <= progress.distance { throw LocationWorkflowError.probeAlreadyPassed }
+        probeDistance = distance
+    }
+
+    func setProbe(near coordinate: RouteCoordinate) throws {
+        guard let distance = path.nearestDistance(to: coordinate, within: 100) else { throw LocationWorkflowError.probeOutsideRoute }
+        try setProbe(at: distance)
+    }
+
+    func clearProbe() { probeDistance = nil }
     var speedMetersPerSecond: Double {
         if speedMode == .road, let speeds = route?.roadSpeeds, !speeds.isEmpty {
             return max(1, speeds[min(speeds.count - 1, path.segmentIndex(at: progress.distance))])
@@ -138,6 +164,7 @@ final class RoutePlaybackController: ObservableObject {
             }
         }
         progress = RouteProgress()
+        probeDistance = nil
         restDeadline = nil
         initialRestName = nil
         pausePending = false
@@ -151,6 +178,7 @@ final class RoutePlaybackController: ObservableObject {
         route = nil
         path = RoutePath(coordinates: [])
         progress = RouteProgress()
+        probeDistance = nil
         dwells = []
         restDeadline = nil
         initialRestName = nil
@@ -204,6 +232,27 @@ final class RoutePlaybackController: ObservableObject {
         } else { try load(route) }
     }
 
+    func restoreDeviceLocation() async throws -> Date {
+        guard needsLocationRestore else { return Date() }
+        if state != .stopping { stop() }
+        let token = generation
+        await task?.value
+        try Task.checkCancellation()
+        guard generation == token, !session.isActive, state == .ready else {
+            throw LocationWorkflowError.gpsNotRestored
+        }
+        return Date()
+    }
+
+    func replaceRoute(with candidate: SavedSimulationRoute) async throws {
+        let validated = try candidate.validated()
+        let oldRoute = route
+        _ = try await restoreDeviceLocation()
+        try Task.checkCancellation()
+        try load(validated)
+        previousRoute = oldRoute
+    }
+
     func start() {
         guard !isLocked, let route, let first = route.coordinates.first else { return }
         beginPlayback(at: first, route: route, resetProgress: true)
@@ -246,7 +295,7 @@ final class RoutePlaybackController: ObservableObject {
         completePause(reason: reason)
     }
 
-    private func completePause(reason: String?) {
+    private func completePause(reason: String?, resending: Bool = true) {
         if let deadline = restDeadline { progress.setDwellRemaining(max(0, deadline - clock())) }
         restDeadline = nil
         pausePending = false
@@ -255,16 +304,17 @@ final class RoutePlaybackController: ObservableObject {
         task = nil
         state = .paused
         message = reason
-        holdLastCoordinate()
+        if resending { holdLastCoordinate() }
     }
 
     func resume() {
-        guard !isSending else { return }
+        guard !isSending, !holdUnconfirmed else { return }
         if canResumeInterruptedRoute, let route, let coordinate = session.coordinate {
             beginPlayback(at: RouteCoordinate(coordinate), route: route, resetProgress: false)
             return
         }
         guard state == .paused, let id = routeID, session.isCurrentRoute(id) else { return }
+        if isHoldingProbe { clearProbe() }
         runFromCurrentProgress()
     }
 
@@ -300,6 +350,7 @@ final class RoutePlaybackController: ObservableObject {
         restDeadline = nil
         pausePending = false
         needsRouteReconnect = false
+        holdUnconfirmed = false
         session.pauseResending()
         session.clearRoute()
         if route != nil { state = .ready }
@@ -323,6 +374,8 @@ final class RoutePlaybackController: ObservableObject {
                 self.session.stop()
                 self.state = .ready
                 self.progress = RouteProgress()
+                self.probeDistance = nil
+                self.lastConfirmedAt = nil
                 self.message = "Đã tắt mô phỏng."
             } else {
                 self.state = .failed
@@ -383,7 +436,8 @@ final class RoutePlaybackController: ObservableObject {
             return
         }
         var candidate = progress
-        candidate.advance(seconds: elapsed, speed: speedMetersPerSecond, totalDistance: path.totalDistance, stops: dwells, stopAtArrival: true)
+        candidate.advance(seconds: elapsed, speed: speedMetersPerSecond, totalDistance: probeDistance ?? path.totalDistance,
+                          stops: dwells, stopAtArrival: true)
         guard let point = path.coordinate(at: candidate.distance) else { return }
         let code = await send(point, pairing: PairingFileStore.prepareURL().path, reconnect: false)
         guard generation == token, session.isCurrentRoute(id), state == .running else { return }
@@ -401,9 +455,14 @@ final class RoutePlaybackController: ObservableObject {
         }
         if candidate.dwellRemaining > 0 {
             restDeadline = clock() + candidate.dwellRemaining
+        }
+        if let probeDistance, candidate.distance >= probeDistance {
+            completePause(reason: "Đã tới mốc dò. Bấm Tiếp tục khi muốn đi tiếp.")
+        } else if pausePending {
+            completePause(reason: pendingPauseReason)
+        } else if candidate.dwellRemaining > 0 {
             holdLastCoordinate()
         }
-        if pausePending { completePause(reason: pendingPauseReason) }
     }
 
     private func fail(_ code: Int32) {
@@ -416,21 +475,51 @@ final class RoutePlaybackController: ObservableObject {
         session.clearRoute()
         routeID = nil
     }
-    private func holdLastCoordinate() {
+    func refreshHeldCoordinate() {
+        guard !isSending, state == .paused || state == .ready || state == .finished || isResting else { return }
+        holdLastCoordinate(immediately: true)
+    }
+
+    private func holdLastCoordinate(immediately: Bool = false) {
         guard let coordinate = session.coordinate else { return }
-        let ip = DeviceConnectionContext.targetIPAddress
-        let pairing = PairingFileStore.prepareURL().path
-        let activeSession = session
-        session.startResending(at: coordinate) { token in
-            LocationSimulationCommandQueue.shared.async {
-                guard activeSession.isCurrentResend(token) else { return }
-                _ = simulate_location(ip, coordinate.latitude, coordinate.longitude, pairing)
+        session.startResending(at: coordinate, immediately: immediately) { [weak self] token in
+            Task { @MainActor [weak self] in
+                await self?.resendHeldCoordinate(RouteCoordinate(coordinate), token: token)
             }
         }
     }
-    private func send(_ coordinate: RouteCoordinate, pairing: String, reconnect: Bool = true) async -> Int32 {
+
+    private func resendHeldCoordinate(_ coordinate: RouteCoordinate, token: UUID) async {
+        guard !isSending, session.isCurrentResend(token) else { return }
+        let previousMessage = message
+        let retrying = holdUnconfirmed
+        let code = await send(coordinate, pairing: PairingFileStore.prepareURL().path, reconnect: retrying, resendToken: token)
+        guard session.isCurrentResend(token) else { return }
+        if code != 0 {
+            session.pauseResending()
+            let failure = "Chưa giữ được tọa độ (mã \(code)). Nối lại VPN rồi bấm Thử giữ lại."
+            if state == .running { completePause(reason: failure, resending: false) }
+            holdUnconfirmed = true
+            message = failure
+        } else {
+            holdUnconfirmed = false
+            if pausePending { completePause(reason: pendingPauseReason) }
+            else { message = retrying ? "Thiết bị đã xác nhận giữ vị trí." : previousMessage }
+        }
+    }
+
+    private func send(_ coordinate: RouteCoordinate, pairing: String, reconnect: Bool = true, resendToken: UUID? = nil) async -> Int32 {
         let ip = DeviceConnectionContext.targetIPAddress
-        return await command { simulate_location(ip, coordinate.latitude, coordinate.longitude, pairing, reconnect: reconnect) }
+        let token = generation
+        let activeSession = session
+        let code = await command {
+            if let resendToken, !activeSession.isCurrentResend(resendToken) { return 0 }
+            return simulate_location(ip, coordinate.latitude, coordinate.longitude, pairing, reconnect: reconnect)
+        }
+        if code == 0, generation == token, resendToken.map(activeSession.isCurrentResend) != false {
+            lastConfirmedAt = Date()
+        }
+        return code
     }
     private func command(_ operation: @escaping () -> Int32) async -> Int32 {
         commandCount += 1

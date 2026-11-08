@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Verify and Build VN 3.2.4
+    name: Verify and Build VN 3.2.5
     runs-on: xcode-27
     timeout-minutes: 20
     steps:
@@ -24,6 +24,7 @@ jobs:
 
       - name: Verify route, duration, receiver and draft logic
         run: |
+          set -o pipefail
           mkdir -p build
           swiftc -swift-version 5 StikDebug/Features/Location/RouteCore.swift \
             StikDebug/Features/Location/MotorcycleRouting.swift \
@@ -36,6 +37,7 @@ jobs:
 
       - name: Exercise production playback controller and session
         run: |
+          set -o pipefail
           swiftc -swift-version 5 \
             StikDebug/Features/Location/RouteCore.swift \
             StikDebug/Features/Location/LocationLinkParser.swift \
@@ -72,11 +74,11 @@ jobs:
           python3 Validation/verify_package.py
           mkdir -p Payload
           cp -R build/StikDebug-VN.xcarchive/Products/Applications/StikDebug.app Payload/
-          file_name="StikDebug-VN-3.2.4-${GITHUB_SHA::7}.ipa"
+          file_name="StikDebug-VN-3.2.5-${GITHUB_SHA::7}.ipa"
           zip -qr "$file_name" Payload
           shasum -a 256 "$file_name" build/StikDebug-VN.shortcut | tee build/SHA256SUMS.txt
-          cat build/core-validation.txt build/controller-validation.txt build/bridge-validation.txt > build/Verification-3.2.4.txt
-          cat build/SHA256SUMS.txt >> build/Verification-3.2.4.txt
+          cat build/core-validation.txt build/controller-validation.txt build/bridge-validation.txt > build/Verification-3.2.5.txt
+          cat build/SHA256SUMS.txt >> build/Verification-3.2.5.txt
           echo "file_name=$file_name" >> "$GITHUB_OUTPUT"
 
       - name: Upload VN IPA
@@ -96,6 +98,6 @@ jobs:
       - name: Upload verification results
         uses: actions/upload-artifact@v7
         with:
-          path: build/Verification-3.2.4.txt
+          path: build/Verification-3.2.5.txt
           archive: false
           retention-days: 30

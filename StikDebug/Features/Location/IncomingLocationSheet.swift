@@ -39,7 +39,7 @@ struct IncomingLocationSheet: View {
                         Button("Thêm điểm dừng", systemImage: "plus.circle") { onChoice(.stop, point) }
                             .disabled(!canAddStop)
                         Button("Đặt vị trí tại đây", systemImage: "location.fill") {
-                            if LocationSimulationSession.shared.isActive || playback.isLocked { confirmPin = true }
+                            if LocationSimulationSession.shared.isActive || playback.isLocked || playback.route != nil || workspace.draft.dirty { confirmPin = true }
                             else { onChoice(.pin, point) }
                         }
                     }
@@ -57,10 +57,10 @@ struct IncomingLocationSheet: View {
             }
             .navigationTitle("Vị trí từ Shortcuts").navigationBarTitleDisplayMode(.inline).tint(.green)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Hủy") { dismiss() } } }
-            .confirmationDialog("Thay vị trí đang mô phỏng?", isPresented: $confirmPin, titleVisibility: .visible) {
-                Button("Kết thúc tuyến và đặt vị trí", role: .destructive) { if let point { onChoice(.pin, point) } }
+            .confirmationDialog("Thay tuyến bằng vị trí này?", isPresented: $confirmPin, titleVisibility: .visible) {
+                Button("Đặt vị trí", role: .destructive) { if let point { onChoice(.pin, point) } }
                 Button("Hủy", role: .cancel) {}
-            } message: { Text("Thao tác này kết thúc phiên đang chạy và đặt vị trí mô phỏng tại điểm mới.") }
+            } message: { Text("App sẽ bỏ tuyến đang xem và bản nháp chưa áp dụng, rồi mô phỏng tại điểm mới.") }
             .sheet(isPresented: $showPicker) {
                 LocationInputSheet(title: "Chọn điểm được chia sẻ", initialInput: request.input ?? "") { point in
                     self.point = point
