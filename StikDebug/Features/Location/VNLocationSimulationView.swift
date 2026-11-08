@@ -69,18 +69,13 @@ struct VNLocationSimulationView: View {
     private var canEdit: Bool { !playback.isLocked && !isImporting }
     private var hasRouteWork: Bool { playback.route != nil || workspace.draft.dirty }
 
-    var body: some View {
+    private var map: some View {
         MapReader { proxy in
             Map(position: $camera) {
                 if let polyline { MapPolyline(polyline).stroke(.green, lineWidth: 5) }
-                if let route = playback.route {
-                    ForEach(Array(route.waypoints.enumerated()), id: \.element.id) { index, point in
-                        Marker(index == 0 ? "Điểm đi" : index == route.waypoints.count - 1 ? "Điểm đến" : "Dừng \(index)", coordinate: point.coordinate.clCoordinate)
-                            .tint(index == route.waypoints.count - 1 ? .red : .green)
-                    }
-                } else if let pin { Marker(pin.name, coordinate: pin.coordinate.clCoordinate).tint(.red) }
+                routeMarkers
                 if let coordinate = session.coordinate {
-                    Marker(playback.state == .failed || playback.pausePending || playback.holdUnconfirmed ? "Vị trí cuối đã xác nhận" : "Đang mô phỏng", coordinate: coordinate).tint(.blue)
+                    Marker(simulationMarkerTitle, coordinate: coordinate).tint(.blue)
                 }
                 if let probe = playback.probeCoordinate {
                     Marker("Mốc dò", systemImage: "scope", coordinate: probe.clCoordinate).tint(.orange)
@@ -103,6 +98,34 @@ struct VNLocationSimulationView: View {
                 workspace.selectedPin = .init(name: "Điểm trên bản đồ", coordinate: RouteCoordinate(coordinate), source: "map")
             }
         }
+    }
+
+    @MapContentBuilder private var routeMarkers: some MapContent {
+        if let route = playback.route {
+            ForEach(Array(route.waypoints.enumerated()), id: \.element.id) { item in
+                waypointMarker(item.element, index: item.offset, lastIndex: route.waypoints.count - 1)
+            }
+        } else if let pin {
+            Marker(pin.name, coordinate: pin.coordinate.clCoordinate).tint(.red)
+        }
+    }
+
+    private func waypointMarker(_ point: RouteWaypoint, index: Int, lastIndex: Int) -> some MapContent {
+        let title: String
+        if index == 0 { title = "Điểm đi" }
+        else if index == lastIndex { title = "Điểm đến" }
+        else { title = "Dừng \(index)" }
+        let color: Color = index == lastIndex ? .red : .green
+        return Marker(title, coordinate: point.coordinate.clCoordinate).tint(color)
+    }
+
+    private var simulationMarkerTitle: String {
+        let isUnconfirmed = playback.state == .failed || playback.pausePending || playback.holdUnconfirmed
+        return isUnconfirmed ? "Vị trí cuối đã xác nhận" : "Đang mô phỏng"
+    }
+
+    private var mapPage: some View {
+        map
         .safeAreaInset(edge: .top) {
             if !tunnel.isConnected || tunnel.lastError != nil {
                 DeviceConnectionStatusView(errorMessage: nil).padding(10).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)).padding(.horizontal)
@@ -144,6 +167,10 @@ struct VNLocationSimulationView: View {
             await Task.yield()
             if !Task.isCancelled { receivePendingInput() }
         }
+    }
+
+    var body: some View {
+        mapPage
         .sheet(item: $modal, onDismiss: {
             if let action = deferredConfirmation { deferredConfirmation = nil; confirmation = action }
             else if workspace.incoming != nil { receivePendingInput() }
@@ -275,7 +302,9 @@ struct VNLocationSimulationView: View {
                 } else { Text("Chọn vị trí hoặc tạo tuyến để bắt đầu").font(.subheadline) }
                 HStack(spacing: 8) {
                     returnGPSButton
-                    if let pin {
+                    if playback.holdUnconfirmed {
+                        retryHoldButton
+                    } else if let pin {
                         Button("Đặt vị trí") {
                             Task { do { try await playback.simulatePin(pin.coordinate) } catch { self.error = error.localizedDescription } }
                         }.buttonStyle(.borderedProminent).disabled(!pairingExists || !canEdit)
@@ -322,10 +351,14 @@ struct VNLocationSimulationView: View {
         }
     }
 
+    private var retryHoldButton: some View {
+        Button("Thử giữ lại", systemImage: "location.circle") { playback.refreshHeldCoordinate() }
+            .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
+    }
+
     @ViewBuilder private var mainPlaybackButton: some View {
         if playback.holdUnconfirmed {
-            Button("Thử giữ lại", systemImage: "location.circle") { playback.refreshHeldCoordinate() }
-                .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
+            retryHoldButton
         } else {
             switch playback.state {
             case .starting, .stopping: ProgressView().padding(.horizontal)

@@ -264,6 +264,15 @@ struct ControllerValidation {
     static func probeAndHold() async throws {
         let clock = ManualClock()
         let p = try await controller(clock)
+        let selected = RoutePath(coordinates: [a, b, c]).coordinate(at: 3)!
+        try p.setProbe(near: .init(latitude: selected.latitude, longitude: selected.longitude + 0.00001))
+        expect(near(p.probeDistance!, 3), "Map selection projects onto the route distance")
+        do {
+            try p.setProbe(near: .init(latitude: 10, longitude: 106.05))
+            fatalError("Accepted a probe too far from the route")
+        } catch LocationWorkflowError.probeOutsideRoute {
+            expect(near(p.probeDistance!, 3), "Rejecting a distant tap preserves the selected probe")
+        }
         try p.setProbe(at: 3)
         await tick(p, clock, at: 1)
         expect(p.isHoldingProbe && p.progress.distance == 3, "Playback clamps to the exact probe distance")

@@ -33,7 +33,10 @@ struct RouteEditorSheet: View {
                 pointsSection
                 if let originCandidate { confirmOriginSection(originCandidate) }
                 speedSection
-                if originTask != nil { ProgressView("Đang tắt mô phỏng…") }
+                if originTask != nil {
+                    ProgressView("Đang tắt mô phỏng…")
+                    if let message = playback.message { Text(message).font(.footnote).foregroundStyle(.secondary) }
+                }
                 if currentLocation.isLoading { ProgressView("Đang lấy điểm đi hiện tại…") }
                 if let error = error ?? currentLocation.error { Text(error).font(.footnote).foregroundStyle(.red) }
                 if isCalculating { ProgressView("Đang tính các chặng…") }
