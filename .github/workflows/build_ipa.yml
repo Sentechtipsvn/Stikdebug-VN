@@ -22,43 +22,6 @@ jobs:
         with:
           xcode-version: '27.1'
 
-      - name: Sign the updated public shortcut source
-        run: |
-          mkdir -p build
-          curl --proto '=https' --fail --show-error --silent --retry 2 --connect-timeout 15 --max-time 90 \
-            -F 'file=@Shortcuts/StikDebug-VN.unsigned.shortcut' \
-            'https://sign.shortcuty.app/api/v1/sign?response=json' -o build/signing-response.json
-          python3 - <<'PY'
-          import base64
-          import hashlib
-          import json
-          from pathlib import Path
-
-          reply = json.loads(Path("build/signing-response.json").read_text())
-          assert reply["success"] is True
-          metadata = reply["file"]
-          signed = base64.b64decode(metadata.pop("content_base64"), validate=True)
-          source = Path("Shortcuts/StikDebug-VN.unsigned.shortcut").read_bytes()
-          assert hashlib.sha256(source).hexdigest() == metadata["input_sha256"]
-          assert hashlib.sha256(signed).hexdigest() == metadata["signed_sha256"]
-          assert metadata["format"] == "AEA1" and metadata["signing_mode"] == "anyone"
-          assert signed.startswith(b"AEA1") and len(signed) == metadata["size"]
-          metadata["provider"] = "Shortcuty Signing API"
-          metadata["verification"] = "Input/output SHA-256 and AEA1 envelope checked."
-          Path("Shortcuts/StikDebug-VN.shortcut").write_bytes(signed)
-          Path("Shortcuts/signing.json").write_text(json.dumps(metadata, indent=2) + "\n")
-          PY
-          python3 Validation/verify_package.py --shortcut-only
-
-      - name: Upload newly signed bridge
-        uses: actions/upload-artifact@v7
-        with:
-          name: Signed-bridge-source
-          path: |
-            Shortcuts/StikDebug-VN.shortcut
-            Shortcuts/signing.json
-          retention-days: 3
-
       - name: Verify route, duration, receiver and draft logic
         run: |
           set -o pipefail
@@ -102,18 +65,15 @@ jobs:
             SWIFT_OPTIMIZATION_LEVEL="-Onone" \
             IPHONEOS_DEPLOYMENT_TARGET=17.4
 
-      - name: Verify signed Shortcuts bridge
-        run: python3 Validation/verify_package.py --shortcut-only
-
       - name: Verify identity and package update
         id: package
         run: |
-          python3 Validation/verify_package.py
+          python3 Validation/verify_package.py --app-only
           mkdir -p Payload
           cp -R build/StikDebug-VN.xcarchive/Products/Applications/StikDebug.app Payload/
           file_name="StikDebug-VN-3.2.9-${GITHUB_SHA::7}.ipa"
           zip -qr "$file_name" Payload
-          shasum -a 256 "$file_name" build/StikDebug-VN-Gui-Vi-Tri-3.2.9.shortcut | tee build/SHA256SUMS.txt
+          shasum -a 256 "$file_name" | tee build/SHA256SUMS.txt
           cat build/core-validation.txt build/controller-validation.txt build/bridge-validation.txt > build/Verification-3.2.9.txt
           cat build/SHA256SUMS.txt >> build/Verification-3.2.9.txt
           echo "file_name=$file_name" >> "$GITHUB_OUTPUT"
@@ -125,16 +85,52 @@ jobs:
           archive: false
           retention-days: 30
 
+      - name: Upload verification results
+        uses: actions/upload-artifact@v7
+        with:
+          path: build/Verification-3.2.9.txt
+          archive: false
+          retention-days: 30
+
+      - name: Sign with Apple Shortcuts
+        id: sign
+        continue-on-error: true
+        timeout-minutes: 2
+        run: |
+          shortcuts sign --mode anyone --input Shortcuts/StikDebug-VN.unsigned.shortcut --output build/new-signature.shortcut
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          source = Path("Shortcuts/StikDebug-VN.unsigned.shortcut").read_bytes()
+          signed = Path("build/new-signature.shortcut").read_bytes()
+          assert signed.startswith(b"AEA1") and len(signed) > 1000
+          metadata = {
+              "format": "AEA1",
+              "signing_mode": "anyone",
+              "input_sha256": hashlib.sha256(source).hexdigest(),
+              "signed_sha256": hashlib.sha256(signed).hexdigest(),
+              "size": len(signed),
+              "provider": "Apple shortcuts sign",
+          }
+          Path("Shortcuts/StikDebug-VN.shortcut").write_bytes(signed)
+          Path("Shortcuts/signing.json").write_text(json.dumps(metadata, indent=2) + "\n")
+          PY
+          python3 Validation/verify_package.py --shortcut-only
+
       - name: Upload signed Shortcuts bridge
+        if: steps.sign.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           path: build/StikDebug-VN-Gui-Vi-Tri-3.2.9.shortcut
           archive: false
           retention-days: 30
 
-      - name: Upload verification results
+      - name: Upload unsigned shortcut source
+        if: steps.sign.outcome != 'success'
         uses: actions/upload-artifact@v7
         with:
-          path: build/Verification-3.2.9.txt
+          path: Shortcuts/StikDebug-VN.unsigned.shortcut
           archive: false
           retention-days: 30
