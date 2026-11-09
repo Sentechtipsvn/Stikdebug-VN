@@ -28,7 +28,7 @@ struct IncomingLocationSheet: View {
                 if isLoading { ProgressView("Đang đọc vị trí được chia sẻ…") }
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
                 if let point {
-                    Section("Tọa độ từ Phím tắt") {
+                    Section(point.source == "shortcut" ? "Tọa độ từ Phím tắt" : "Vị trí đã chọn") {
                         Text(point.name).font(.headline)
                         Text(String(format: "%.6f, %.6f", point.coordinate.latitude, point.coordinate.longitude)).font(.caption.monospaced())
                         Map(initialPosition: .region(.init(center: point.coordinate.clCoordinate, latitudinalMeters: 700, longitudinalMeters: 700))) {
@@ -80,6 +80,11 @@ struct IncomingLocationSheet: View {
                 }
             }
             .task(id: request.id) {
+                if let received = request.point {
+                    point = received
+                    isLoading = false
+                    return
+                }
                 guard let input = request.input else {
                     error = "Chưa nhận được link hoặc tọa độ hợp lệ từ Phím tắt. Sếp có thể dán link bản đồ hoặc chọn lại ghim."
                     needsPicker = true

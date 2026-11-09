@@ -92,8 +92,10 @@ struct LocationRouteDraft: Codable, Identifiable, Equatable, Sendable {
 
     var hasDestination: Bool { rows.count >= 2 && rows.last?.point != nil }
 
+    var anchorsDetourToBot: Bool { replacement == .detour && originIsAutomatic }
+
     func replacesRouteFromSelectedOrigin(whileContinuingRoute: Bool) -> Bool {
-        replacement != nil || (whileContinuingRoute && !originIsAutomatic)
+        replacement == .newRoute || (!originIsAutomatic && (replacement == .detour || whileContinuingRoute))
     }
 
     var points: [RouteWaypoint]? {
@@ -126,6 +128,7 @@ enum LocationWorkflowError: LocalizedError {
     case noDestination
     case invalidRequest
     case busy
+    case simulationOriginUnavailable
     case gpsNotRestored
     case probeOutsideRoute
     case probeAlreadyPassed
@@ -134,6 +137,7 @@ enum LocationWorkflowError: LocalizedError {
         case .noDestination: return "Hãy chọn điểm đến trước khi thêm điểm dừng."
         case .invalidRequest: return "Yêu cầu vị trí không hợp lệ. Hãy chia sẻ một địa điểm hoặc mở phím tắt không có đầu vào để tạo tuyến."
         case .busy: return "Đang xử lý lệnh vị trí. Vui lòng chờ một chút rồi thử lại."
+        case .simulationOriginUnavailable: return "Chưa xác nhận được vị trí bot. Hãy kết nối lại hoặc chọn điểm đi khác."
         case .gpsNotRestored: return "Thiết bị chưa xác nhận đã tắt mô phỏng. Kiểm tra kết nối rồi thử lại."
         case .probeOutsideRoute: return "Mốc nằm ngoài tuyến. Hãy chọn một vị trí trên phần đường màu xanh."
         case .probeAlreadyPassed: return "Bot đã đi qua mốc này. Hãy chọn mốc phía trước."
@@ -145,11 +149,18 @@ struct LocationReceiveRequest: Identifiable, Equatable {
     let id: UUID
     let input: String?
     let isCompose: Bool
+    let point: RouteWaypoint?
 
-    private init(input: String? = nil, isCompose: Bool = false) {
+    private init(input: String? = nil, isCompose: Bool = false, point: RouteWaypoint? = nil) {
         id = UUID()
         self.input = input
         self.isCompose = isCompose
+        self.point = point
+    }
+
+    init(shortcutCoordinate: RouteCoordinate) {
+        self.init(input: "\(shortcutCoordinate.latitude),\(shortcutCoordinate.longitude)",
+                  point: .init(name: "Tọa độ được chia sẻ", coordinate: shortcutCoordinate, source: "shortcut"))
     }
 
     private static func endpoint(_ url: URL) -> URLComponents? {
@@ -167,20 +178,47 @@ struct LocationReceiveRequest: Identifiable, Equatable {
     static func parse(_ url: URL) throws -> Self {
         guard let components = endpoint(url) else { throw LocationWorkflowError.invalidRequest }
         let items = components.queryItems ?? []
-        for name in ["input", "lat", "lon", "name"] {
-            guard items.filter({ $0.name == name }).count <= 1 else { throw LocationWorkflowError.invalidRequest }
+        func value(_ keys: [String]) throws -> String? {
+            let matches = items.filter { keys.contains($0.name.lowercased()) }
+            guard matches.count <= 1 else { throw LocationWorkflowError.invalidRequest }
+            return matches.first.map { ($0.value ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
         }
+        func coordinate(in text: String) -> RouteCoordinate? {
+            if let point = LocationLinkParser.sharedCoordinatePair(text) { return point }
+            // A URL action can encode an already encoded coordinate token again.
+            return text.removingPercentEncoding.flatMap(LocationLinkParser.sharedCoordinatePair)
+        }
+        let name: String? = try value(["name"]).flatMap { $0.isEmpty ? nil : String($0.prefix(120)) }
+        func request(_ text: String, at coordinate: RouteCoordinate?) -> Self {
+            let point = coordinate.map {
+                RouteWaypoint(name: name ?? "Tọa độ được chia sẻ", coordinate: $0, source: "shortcut")
+            }
+            return Self(input: text, point: point)
+        }
+
+        let input = try value(["input"])
+        let pair = try value(["coordinate", "coordinates", "coords", "ll"])
+        let latitude = try value(["lat", "latitude"])
+        let longitude = try value(["lon", "lng", "long", "longitude"])
+        guard (input?.count ?? 0) <= 16_384, (pair?.count ?? 0) <= 256,
+              (latitude?.count ?? 0) <= 128, (longitude?.count ?? 0) <= 128 else {
+            throw LocationWorkflowError.invalidRequest
+        }
+        if latitude != nil || longitude != nil {
+            guard let latitude, let longitude else { throw LocationWorkflowError.invalidRequest }
+            let text = [latitude, longitude].map { $0.replacingOccurrences(of: ",", with: ".") }.joined(separator: ",")
+            guard let point = coordinate(in: text) else { throw LocationWorkflowError.invalidRequest }
+            if let pair, coordinate(in: pair) != point { throw LocationWorkflowError.invalidRequest }
+            if let input, let other = coordinate(in: input), other != point { throw LocationWorkflowError.invalidRequest }
+            return request(text, at: point)
+        }
+        if let pair {
+            guard let point = coordinate(in: pair) else { throw LocationWorkflowError.invalidRequest }
+            if let input, let other = coordinate(in: input), other != point { throw LocationWorkflowError.invalidRequest }
+            return request(pair, at: point)
+        }
+        if let input, !input.isEmpty { return request(input, at: coordinate(in: input)) }
         if components.host?.lowercased() == "create-route" { return Self(isCompose: true) }
-        if let text = items.first(where: { $0.name == "input" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
-            guard text.count <= 16_384 else { throw LocationWorkflowError.invalidRequest }
-            return Self(input: text)
-        }
-        let lat = items.first(where: { $0.name == "lat" })?.value
-        let lon = items.first(where: { $0.name == "lon" })?.value
-        if lat != nil || lon != nil {
-            guard let lat, let lon, LocationLinkParser.sharedCoordinatePair(lat + "," + lon) != nil else { throw LocationWorkflowError.invalidRequest }
-            return Self(input: lat + "," + lon)
-        }
         throw LocationWorkflowError.invalidRequest
     }
 }

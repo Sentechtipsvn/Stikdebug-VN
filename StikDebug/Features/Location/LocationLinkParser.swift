@@ -23,7 +23,7 @@ enum LocationInputError: LocalizedError {
 
 enum LocationLinkParser {
     static func coordinatePair(_ text: String) -> RouteCoordinate? {
-        let pattern = #"^\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+))\s*[,;]\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+))\s*$"#
+        let pattern = #"^\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+))\s*[,;\n]\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+))\s*$"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let a = Range(match.range(at: 1), in: text), let b = Range(match.range(at: 2), in: text),

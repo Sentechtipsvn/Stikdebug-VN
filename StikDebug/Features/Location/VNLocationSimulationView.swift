@@ -33,7 +33,7 @@ private enum RouteConfirmation: Identifiable {
     var message: String {
         switch self {
         case .newRoute: return "App sẽ thay bản nháp hiện tại. Tuyến đang chạy chỉ đổi khi Sếp áp dụng."
-        case .detour: return "App giữ tuyến và điểm đến để Sếp thử nhánh từ một điểm đi khác. Bản nháp chưa áp dụng sẽ được thay."
+        case .detour: return "App sẽ lấy vị trí bot làm điểm đi nếu đang mô phỏng và giữ điểm đến. Bản nháp hiện tại sẽ được thay."
         case .discard: return "Thao tác này bỏ bản nháp và tuyến đang hiển thị. Tuyến đã lưu vẫn có trong thư viện."
         case .previous: return "App sẽ thay bản nháp và chuẩn bị tuyến trước từ đầu. Phiên mô phỏng hiện tại sẽ tắt nếu đang chạy."
         case .importFile: return "Tệp hợp lệ sẽ thay bản nháp và tuyến đang hiển thị."
@@ -112,9 +112,6 @@ struct VNLocationSimulationView: View {
                 Image(systemName: pose.bearing == nil ? "circle.fill" : "location.north.fill")
                     .font(.system(size: pose.bearing == nil ? 12 : 22, weight: .semibold))
                     .foregroundStyle(color)
-                    .frame(width: 34, height: 34)
-                    .background(.background, in: Circle())
-                    .overlay { Circle().strokeBorder(color.opacity(0.65), lineWidth: 2) }
                     .rotationEffect(.degrees((pose.bearing ?? heading) - heading))
                     .accessibilityLabel(simulationMarkerTitle)
                     .position(position)
@@ -148,35 +145,22 @@ struct VNLocationSimulationView: View {
 
     private var mapPage: some View {
         map
+        .overlay(alignment: .topLeading) { routeAttribution.padding(8) }
         .safeAreaInset(edge: .top) {
             if !tunnel.isConnected || tunnel.lastError != nil {
                 DeviceConnectionStatusView(errorMessage: nil).padding(10).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)).padding(.horizontal)
             }
         }
-        .safeAreaInset(edge: .bottom) { controls.padding(12).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22)).padding(12) }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            controls.padding(10)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+                .padding(.horizontal, 10).padding(.bottom, 6)
+        }
         .navigationTitle("Mô phỏng vị trí").navigationBarTitleDisplayMode(.inline).tint(.green)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button("Chọn vị trí", systemImage: "magnifyingglass") { modal = .input }.disabled(!canEdit)
-                Menu {
-                    Button("Tạo / sửa tuyến", systemImage: "point.topleft.down.curvedto.point.bottomright.up") { openEditor() }.disabled(!canDraft)
-                    Button("Tuyến đã lưu", systemImage: "tray.full") { modal = .library }.disabled(!canEdit)
-                    Button("Dấu trang", systemImage: "bookmark.fill") { loadBookmarks(); modal = .bookmarks }.disabled(!canEdit)
-                    Button("Nhập GPX, KML, CSV…", systemImage: "square.and.arrow.down") {
-                        if hasRouteWork { confirmation = .importFile } else { showImporter = true }
-                    }.disabled(!canEdit)
-                    if let previous = playback.previousRoute {
-                        Button("Mở lại tuyến trước", systemImage: "arrow.uturn.backward") {
-                            confirmation = .previous
-                        }.disabled(!canDraft || previous.id == playback.route?.id)
-                    }
-                    if hasRouteWork {
-                        Button("Tạo tuyến mới", systemImage: "plus.square") { confirmation = .newRoute }.disabled(!canDraft)
-                        Button("Xóa bản nháp", systemImage: "trash", role: .destructive) {
-                            confirmation = .discard
-                        }.disabled(!canEdit)
-                    }
-                } label: { Image(systemName: "ellipsis.circle") }
+                locationMenu
             }
         }
         .onAppear { loadBookmarks(); updateMap() }
@@ -188,6 +172,58 @@ struct VNLocationSimulationView: View {
         .task(id: workspace.incoming?.id) {
             await Task.yield()
             if !Task.isCancelled { receivePendingInput() }
+        }
+    }
+
+    private var locationMenu: some View {
+        Menu {
+            if let route = playback.route {
+                Section(route.name) {
+                    Button("Đổi nhánh từ đây", systemImage: "arrow.triangle.branch") {
+                        if workspace.draft.replacement == .detour { openEditor() }
+                        else { confirmation = .detour }
+                    }.disabled(!canDraft)
+                    if selectingProbe {
+                        Button("Hủy chọn mốc", systemImage: "xmark") { selectingProbe = false }
+                    } else {
+                        Button("Dò tới mốc", systemImage: "scope") { showProbeOptions = true }.disabled(!canDraft)
+                    }
+                    if playback.probeDistance != nil {
+                        Button("Bỏ mốc dò", systemImage: "scope") { playback.clearProbe() }
+                    }
+                    Button("Lưu tuyến", systemImage: "square.and.arrow.down") { name = route.name; showSaveRoute = true }
+                }
+            }
+            Button("Tạo / sửa tuyến", systemImage: "point.topleft.down.curvedto.point.bottomright.up") { openEditor() }.disabled(!canDraft)
+            Button("Tuyến đã lưu", systemImage: "tray.full") { modal = .library }.disabled(!canEdit)
+            Button("Dấu trang", systemImage: "bookmark.fill") { loadBookmarks(); modal = .bookmarks }.disabled(!canEdit)
+            Button("Nhập GPX, KML, CSV…", systemImage: "square.and.arrow.down") {
+                if hasRouteWork { confirmation = .importFile } else { showImporter = true }
+            }.disabled(!canEdit)
+            if let previous = playback.previousRoute {
+                Button("Mở lại tuyến trước", systemImage: "arrow.uturn.backward") {
+                    confirmation = .previous
+                }.disabled(!canDraft || previous.id == playback.route?.id)
+            }
+            if hasRouteWork {
+                Button("Tạo tuyến mới", systemImage: "plus.square") { confirmation = .newRoute }.disabled(!canDraft)
+                Button("Xóa bản nháp", systemImage: "trash", role: .destructive) {
+                    confirmation = .discard
+                }.disabled(!canEdit)
+            }
+        } label: { Image(systemName: "ellipsis.circle").accessibilityLabel("Tùy chọn mô phỏng") }
+    }
+
+    @ViewBuilder private var routeAttribution: some View {
+        if let route = playback.route, route.vehicle == .motorcycle || playback.speedMode == .road {
+            HStack(spacing: 6) {
+                if route.vehicle == .motorcycle {
+                    Link("Powered by Geoapify", destination: URL(string: "https://www.geoapify.com/")!)
+                }
+                Link("© OpenStreetMap contributors", destination: URL(string: "https://www.openstreetmap.org/copyright")!)
+            }
+            .font(.caption2).padding(.horizontal, 6).padding(.vertical, 3)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
         }
     }
 
@@ -249,9 +285,10 @@ struct VNLocationSimulationView: View {
     }
 
     @ViewBuilder private var controls: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(playback.statusTitle).font(.subheadline.weight(.semibold)).foregroundStyle(playback.isResting ? .orange : .primary)
+                Text(selectingProbe ? "Chạm đường xanh để đặt mốc" : playback.statusTitle)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(playback.isResting ? .orange : .primary)
                 Spacer(minLength: 8)
                 if let speed = playback.displaySpeedKmh {
                     Text("\(Int(speed.rounded())) km/h").font(.headline.monospacedDigit())
@@ -266,21 +303,10 @@ struct VNLocationSimulationView: View {
                     .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
             }
             if isImporting { ProgressView("Đang nhập tọa độ…") }
-            if let route = playback.route {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(route.name).font(.subheadline).lineLimit(1)
-                        if let vehicle = route.vehicle {
-                            Text(vehicle == .motorcycle ? "Xe máy" : "Ô tô").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                    Button("Lưu tuyến", systemImage: "square.and.arrow.down") { name = route.name; showSaveRoute = true }.font(.caption)
-                }
-                ProgressView(value: playback.fractionComplete).tint(.green)
-                HStack {
+            if playback.route != nil {
+                HStack(spacing: 8) {
                     Text(String(format: "%.2f / %.2f km", playback.progress.distance / 1000, playback.totalDistance / 1000))
-                    Spacer()
+                    ProgressView(value: playback.fractionComplete).tint(.green).accessibilityLabel("Tiến độ tuyến")
                     Text("Còn \(Int(ceil(playback.remainingTime / 60))) phút")
                 }.font(.caption.monospaced()).foregroundStyle(.secondary)
                 if playback.speedMode == .fixed {
@@ -289,16 +315,6 @@ struct VNLocationSimulationView: View {
                         Slider(value: $playback.speedKmh, in: 1...300, step: 1).tint(.green)
                         Text("\(Int(playback.speedKmh)) km/h").font(.caption.monospaced()).frame(minWidth: 65)
                     }
-                } else {
-                    Text("Tốc độ đặt: theo dữ liệu đường").font(.caption)
-                }
-                if route.vehicle == .motorcycle || playback.speedMode == .road {
-                    HStack(spacing: 10) {
-                        if route.vehicle == .motorcycle {
-                            Link("Powered by Geoapify", destination: URL(string: "https://www.geoapify.com/")!)
-                        }
-                        Link("© OpenStreetMap contributors", destination: URL(string: "https://www.openstreetmap.org/copyright")!)
-                    }.font(.caption2)
                 }
                 if playback.isResting {
                     HStack {
@@ -317,7 +333,6 @@ struct VNLocationSimulationView: View {
                     mainPlaybackButton
                     Button("Sửa tuyến") { openEditor() }.buttonStyle(.bordered).disabled(!canDraft)
                 }.font(.subheadline)
-                probeControls
             } else {
                 if let pin {
                     Text(pin.name).font(.subheadline.weight(.semibold)).lineLimit(1)
@@ -337,32 +352,6 @@ struct VNLocationSimulationView: View {
                     }
                     Button("Tạo tuyến") { openEditor() }.buttonStyle(.borderedProminent).disabled(!canDraft)
                 }.font(.subheadline)
-            }
-        }
-    }
-
-    @ViewBuilder private var probeControls: some View {
-        if selectingProbe {
-            HStack {
-                Text("Chạm đường màu xanh để đặt mốc.").font(.caption)
-                Spacer()
-                Button("Hủy") { selectingProbe = false }
-            }
-        } else {
-            HStack(spacing: 8) {
-                Button("Đổi nhánh từ đây", systemImage: "arrow.triangle.branch") {
-                    if workspace.draft.replacement == .detour { modal = .editor }
-                    else { confirmation = .detour }
-                }.disabled(!canDraft)
-                Button("Dò tới mốc", systemImage: "scope") { showProbeOptions = true }
-                    .disabled(!canDraft)
-            }.font(.caption).buttonStyle(.bordered)
-            if let distance = playback.probeDistance {
-                HStack {
-                    Text(String(format: "Mốc %.2f km từ điểm đi", distance / 1_000))
-                    Spacer()
-                    Button("Bỏ mốc") { playback.clearProbe() }
-                }.font(.caption)
             }
         }
     }
@@ -413,7 +402,7 @@ struct VNLocationSimulationView: View {
             let replacement: RouteDraftReplacement
             if case .detour = action { replacement = .detour } else { replacement = .newRoute }
             workspace.draft = .init(replacement: replacement, from: playback.route)
-            modal = .editor
+            openEditor()
         case .discard:
             guard canEdit else { return }
             playback.resetDraft()

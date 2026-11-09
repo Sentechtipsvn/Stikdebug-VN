@@ -55,6 +55,7 @@ struct ControllerValidation {
         try await visualMarker()
         try await probeAndHold()
         try await detourReplacement()
+        try await detourFromBot()
         try await workspacePersistence()
         print("PASS: \(checks) production controller/session/workspace checks (device boundary simulated)")
     }
@@ -139,12 +140,12 @@ struct ControllerValidation {
             .init(coordinates: [b, newStop.coordinate], expectedTravelTime: 1), .init(coordinates: [newStop.coordinate, c], expectedTravelTime: 1)
         ], speedKmh: 36)
         let commandCount = device.recorded.count
-        try p.installDraft(updated, anchor: anchor)
+        try await p.installDraft(updated, anchor: anchor)
         expect(p.state == .paused && session.coordinate!.latitude == b.latitude, "Install stays paused at same coordinate")
         expect(device.recorded.count == commandCount, "Installing draft does not send new movement")
         expect(near(p.progress.dwellRemaining, 270) && p.restName == "Trạm B", "Apply preserves rest at removed current stop")
         var invalid = updated; invalid.legs = []
-        do { try p.installDraft(invalid, anchor: anchor); fatalError("Invalid replacement accepted") } catch { checks += 1 }
+        do { try await p.installDraft(invalid, anchor: anchor); fatalError("Invalid replacement accepted") } catch { checks += 1 }
         expect(p.route?.id == updated.id && p.state == .paused, "Rejected draft preserves old active route")
         clock.value = 1000; p.resume()
         await tick(p, clock, at: 1270)
@@ -238,7 +239,7 @@ struct ControllerValidation {
         let p = try await controller(clock)
         await tick(p, clock, at: 0.2)
         let previousRoute = p.route!.id
-        store.receiveDestination(.init(name: "Đích mới", coordinate: c), playback: p)
+        store.receiveDestination(.init(name: "Đích mới", coordinate: c, source: "shortcut"), playback: p)
         try store.receiveStop(.init(name: "Giao hàng", coordinate: b), playback: p)
         store.draft.rows[1].dwell = 90
         let restored = LocationWorkspaceStore(defaults: defaults)
@@ -257,6 +258,7 @@ struct ControllerValidation {
         store.receiveDestination(.init(name: "Ghim khác", coordinate: b, source: "map"), playback: p)
         expect(store.draft.rows[0].point == bookmark && store.draft.rows.last?.point?.coordinate == b,
                "A second shared pin updates the destination and keeps a manually selected origin")
+        expect(store.draft.rows.last?.point?.source == "map", "A manually picked destination keeps its actual source")
         expect(store.draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: p.hasActiveRoute),
                "Explicit origin uses the replacement path instead of rebasing from the bot")
         expect(!store.draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: false),
@@ -360,5 +362,53 @@ struct ControllerValidation {
         expect(p.state == .ready && !session.isActive, "Detour is prepared after the old location is cleared")
         try await p.replaceRoute(with: original)
         expect(p.route == original && p.previousRoute == new, "Previous route can be reopened without losing the other branch")
+    }
+
+    static func detourFromBot() async throws {
+        let clock = ManualClock()
+        let p = try await controller(clock)
+        let original = p.route!
+        let suite = "StikDebugVN.detour.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = LocationWorkspaceStore(defaults: defaults)
+        await tick(p, clock, at: 0.2)
+        let firstPosition = RouteCoordinate(session.coordinate!)
+        store.draft = LocationRouteDraft(replacement: .detour, from: original)
+        let reopened = LocationWorkspaceStore(defaults: defaults)
+        reopened.prepareEditor(playback: p)
+        expect(reopened.draft.anchorsDetourToBot && reopened.draft.rows.first?.point?.coordinate == firstPosition,
+               "An existing detour with an empty origin automatically uses the confirmed bot position")
+        expect(reopened.draft.rows.last?.point == original.waypoints.last && p.state == .running,
+               "Opening a detour keeps the old destination and the running route")
+
+        let request = try LocationReceiveRequest.parse(URL(string: "stikdebugvn://receive-location?latitude=10.00015&lng=106")!)
+        reopened.receiveDestination(request.point!, playback: p)
+        expect(reopened.draft.rows.last?.point == request.point && reopened.draft.rows.first?.point?.coordinate == firstPosition,
+               "A received point updates the destination of an existing detour")
+        await tick(p, clock, at: 0.4)
+        let anchor = try await p.pauseForEditing()!
+        expect(anchor.coordinate == RouteCoordinate(session.coordinate!) && anchor.coordinate != firstPosition,
+               "Applying a detour uses the position confirmed at pause")
+        let points = try reopened.draft.rebased(at: anchor.coordinate, completedIDs: anchor.completedIDs)
+        let new = SavedSimulationRoute(name: "Nhánh mới", waypoints: points,
+                                       legs: [.init(coordinates: points.map(\.coordinate), expectedTravelTime: 2)])
+        let commands = device.recorded
+        try await p.installDraft(new, anchor: anchor, keepPrevious: true)
+        expect(p.state == .paused && session.isActive && RouteCoordinate(session.coordinate!) == anchor.coordinate,
+               "Applying keeps the active simulation at the confirmed start")
+        expect(p.previousRoute == original && p.route?.waypoints.last?.coordinate == request.point?.coordinate,
+               "The previous route can be restored and the received coordinate becomes the destination")
+        expect(device.recorded == commands, "Switching from the bot sends neither a clear nor a movement command")
+        do {
+            try await p.installDraft(new, anchor: anchor, keepPrevious: true)
+            fatalError("Installed a detour using an anchor from an earlier session")
+        } catch LocationWorkflowError.simulationOriginUnavailable {
+            expect(p.previousRoute == original, "A stale anchor cannot replace the current route or its predecessor")
+        }
+        p.resume()
+        await tick(p, clock, at: 0.6)
+        expect(p.state == .running && p.progress.distance > 0, "Continuing moves along the new branch from the held position")
+        _ = p.interruptForExternalAction()
     }
 }

@@ -21,11 +21,11 @@ if "--shortcut-only" in sys.argv: sys.exit(0)
 app = build / "StikDebug-VN.xcarchive/Products/Applications/StikDebug.app"
 info = plistlib.loads((app / "Info.plist").read_bytes())
 assert info["CFBundleIdentifier"] == "com.sentechtipsvn.stikdebugvn", "Update would change app identity"
-assert info["CFBundleShortVersionString"] == "3.2.7" and info["CFBundleVersion"] == "7"
+assert info["CFBundleShortVersionString"] == "3.2.8" and info["CFBundleVersion"] == "8"
 assert info["CFBundleDisplayName"] == "StikDebug VN"
 assert float(info["MinimumOSVersion"]) == 17.4
 schemes = {scheme for item in info["CFBundleURLTypes"] for scheme in item["CFBundleURLSchemes"]}
 assert schemes == {"stikdebugvn", "stikjitvn"}, "App URL schemes changed"
 assert (app / info["CFBundleExecutable"]).stat().st_size > 1_000_000
 assert not (app / "embedded.mobileprovision").exists(), "Unexpected personal provisioning profile"
-print("PASS: 3.2.7 (7) keeps existing VN bundle ID, schemes, minimum OS and app name")
+print("PASS: 3.2.8 (8) keeps existing VN bundle ID, schemes, minimum OS and app name")

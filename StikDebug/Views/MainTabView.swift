@@ -93,6 +93,12 @@ struct MainTabView: View {
                     performLocationAction(action)
                     pendingLocationAction = nil
                 }
+                if case .simulate(_, let latitude, let longitude) = action {
+                    Button("Dùng làm điểm đến") {
+                        pendingLocationAction = nil
+                        enqueueLocationRequest(.init(shortcutCoordinate: .init(latitude: latitude, longitude: longitude)))
+                    }
+                }
                 Button("Cancel".localized, role: .cancel) {
                     pendingLocationAction = nil
                 }
@@ -123,9 +129,28 @@ struct MainTabView: View {
 
     private func showLocationRequest(_ request: LocationReceiveRequest) {
         didSetInitialHome = true
-        LogManager.shared.addInfoLog(request.isCompose ? "Đã nhận yêu cầu tạo tuyến từ Phím tắt." : "Đã nhận vị trí từ Phím tắt.")
+        if request.isCompose {
+            LogManager.shared.addInfoLog("Đã nhận yêu cầu tạo tuyến từ Phím tắt.")
+        } else if request.point != nil {
+            LogManager.shared.addInfoLog("Đã nhận tọa độ từ Phím tắt.")
+        } else if request.input != nil {
+            LogManager.shared.addInfoLog("Đã nhận link hoặc văn bản từ Phím tắt.")
+        } else {
+            LogManager.shared.addInfoLog("Phím tắt chưa gửi link hoặc tọa độ hợp lệ.")
+        }
         selection = AppFeature.tools.id
         LocationWorkspaceStore.shared.incoming = request
+    }
+
+    private func enqueueLocationRequest(_ request: LocationReceiveRequest) {
+        // Draft state lives outside sheets, so sharing another point cannot discard it.
+        if detachedFeature != nil || awaitingFeatureDismiss {
+            pendingRouteRequest = request
+            awaitingFeatureDismiss = true
+            detachedFeature = nil
+        } else {
+            showLocationRequest(request)
+        }
     }
 
     private func ensureSelectionIsValid() {
@@ -151,14 +176,7 @@ struct MainTabView: View {
                 }
                 request = recovery
             }
-            // Draft state lives outside sheets, so sharing another point cannot discard it.
-            if detachedFeature != nil || awaitingFeatureDismiss {
-                pendingRouteRequest = request
-                awaitingFeatureDismiss = true
-                detachedFeature = nil
-            } else {
-                showLocationRequest(request)
-            }
+            enqueueLocationRequest(request)
         case "simulate-location", "set-location":
             confirmSimulatedLocation(from: url)
         case "location", "location-simulation":

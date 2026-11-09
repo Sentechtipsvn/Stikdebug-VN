@@ -26,7 +26,13 @@ final class LocationWorkspaceStore: ObservableObject {
     }
 
     func prepareEditor(playback: RoutePlaybackController) {
-        guard !draft.dirty else { return }
+        if draft.dirty {
+            if draft.replacement == .detour, (draft.originIsAutomatic || draft.rows.first?.point == nil),
+               let origin = playback.simulatedRouteOrigin {
+                useBotAsOrigin(origin)
+            }
+            return
+        }
         if playback.hasActiveRoute { draft = playback.remainingDraft() }
         else if let route = playback.route, playback.state != .finished { draft = LocationRouteDraft(route: route) }
         else { draft = LocationRouteDraft() }
@@ -34,9 +40,7 @@ final class LocationWorkspaceStore: ObservableObject {
 
     func receiveDestination(_ point: RouteWaypoint, playback: RoutePlaybackController) {
         prepareEditor(playback: playback)
-        var destination = point
-        destination.source = "shortcut"
-        draft.setDestination(destination)
+        draft.setDestination(point)
         useSimulationAsOriginIfAutomatic()
     }
 
@@ -47,9 +51,18 @@ final class LocationWorkspaceStore: ObservableObject {
     }
 
     func useSimulationAsOriginIfAutomatic() {
-        guard draft.originIsAutomatic, let coordinate = LocationSimulationSession.shared.coordinate,
+        guard draft.originIsAutomatic, draft.replacement != .detour, let coordinate = LocationSimulationSession.shared.coordinate,
               LocationSimulationSession.shared.isActive, !draft.rows.isEmpty else { return }
         draft.rows[0].point = .init(name: "Vị trí đang mô phỏng", coordinate: RouteCoordinate(coordinate), source: "simulated")
+    }
+
+    func useBotAsOrigin(_ point: RouteWaypoint) {
+        guard !draft.rows.isEmpty else { return }
+        var updated = draft
+        updated.rows[0].point = point
+        updated.originIsAutomatic = true
+        updated.dirty = true
+        draft = updated
     }
 
     func setPoint(_ point: RouteWaypoint, rowID: UUID) {

@@ -133,6 +133,26 @@ for input in inputs {
 }
 expect(try LocationReceiveRequest.parse(URL(string: "stikdebugvn://create-route")!).isCompose, "Home shortcut opens editor")
 expect(try LocationReceiveRequest.parse(URL(string: "stikdebugvn://receive-location?lat=10&lon=106")!).input == "10,106", "Receiver supports direct coordinate parameters")
+let sharedCoordinate = RouteCoordinate(latitude: 10, longitude: 106)
+let coordinateRequests = [
+    "stikdebugvn://receive-location?latitude=10&longitude=106",
+    "stikdebugvn://receive-location?LAT=10&lng=106",
+    "stikdebugvn://receive-location?coords=10%2C106",
+    "stikdebugvn://receive-location?input=10%0A106",
+    "stikdebugvn://receive-location?input=10%252C106",
+    "stikdebugvn://create-route?coordinate=10%2C106",
+    "stikdebugvn://receive-location?input=Ignored%20title&lat=10&lon=106"
+]
+for url in coordinateRequests {
+    let request = try LocationReceiveRequest.parse(URL(string: url)!)
+    expect(!request.isCompose && request.point?.coordinate == sharedCoordinate && request.point?.source == "shortcut",
+           "Shared coordinates reach the destination preview directly: \(url)")
+}
+let named = try LocationReceiveRequest.parse(URL(string: "stikdebugvn://receive-location?lat=10%2C5&lng=106%2C25&name=Kho")!)
+expect(named.point?.name == "Kho" && named.point?.coordinate == .init(latitude: 10.5, longitude: 106.25),
+       "Direct coordinate fields keep the name and accept decimal commas")
+expect(LocationReceiveRequest(shortcutCoordinate: sharedCoordinate).point?.coordinate == sharedCoordinate,
+       "Legacy location dialog can pass the validated point to the receiver")
 var dmsLink = URLComponents(string: "stikdebugvn://receive-location")!
 dmsLink.queryItems = [.init(name: "lat", value: #"11°30'36.0"N"#), .init(name: "lon", value: #"107°15'36.0"E"#)]
 expect(try LocationReceiveRequest.parse(dmsLink.url!).input != nil, "Receiver accepts separate DMS coordinate parameters")
@@ -143,6 +163,14 @@ expect(LocationReceiveRequest.recovery(for: URL(string: "stikdebugvn://user@rece
        "Recovery never accepts credential-bearing links or turns compose into a receive request")
 for invalid in ["stikdebug://receive-location?input=x", "stikdebugvn://simulate-location?input=x", "stikdebugvn://receive-location?input=x&input=y", "stikdebugvn://receive-location?lat=91&lon=106", "stikdebugvn://receive-location?lat=10", "stikdebugvn://user@receive-location?input=x", "stikdebugvn://receive-location:123/?input=x"] {
     expectThrows("Invalid receive URL: \(invalid)") { _ = try LocationReceiveRequest.parse(URL(string: invalid)!) }
+}
+for invalid in [
+    "stikdebugvn://receive-location?lat=10&LATITUDE=11&lng=106",
+    "stikdebugvn://receive-location?lat=10&lng=106&coords=11%2C107",
+    "stikdebugvn://receive-location?lat=10&lng=106&input=11%2C107",
+    "stikdebugvn://create-route?coords=10%2C206"
+] {
+    expectThrows("Invalid or ambiguous direct coordinates: \(invalid)") { _ = try LocationReceiveRequest.parse(URL(string: invalid)!) }
 }
 var huge = URLComponents(string: "stikdebugvn://receive-location")!
 huge.queryItems = [.init(name: "input", value: String(repeating: "x", count: 16385))]

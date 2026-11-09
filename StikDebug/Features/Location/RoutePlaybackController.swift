@@ -12,6 +12,7 @@ enum RoutePlaybackState: Equatable {
 }
 
 struct RouteEditAnchor {
+    fileprivate let generation: UUID
     let coordinate: RouteCoordinate
     let remainingRest: Double
     let restName: String?
@@ -72,6 +73,11 @@ final class RoutePlaybackController: ObservableObject {
     var isLocked: Bool { [.starting, .running, .paused, .stopping].contains(state) || isSending }
     var needsLocationRestore: Bool { session.isActive || isLocked || state == .failed }
     var hasActiveRoute: Bool { [.running, .paused].contains(state) && route != nil }
+    var canContinueFromBot: Bool { hasActiveRoute || (state == .finished && session.isActive) }
+    var simulatedRouteOrigin: RouteWaypoint? {
+        guard canContinueFromBot, let coordinate = session.coordinate else { return nil }
+        return .init(name: "Vị trí đang mô phỏng", coordinate: RouteCoordinate(coordinate), source: "simulated")
+    }
     var isResting: Bool { progress.dwellRemaining > 0 && [.running, .paused].contains(state) }
     var canResumeInterruptedRoute: Bool { state == .failed && needsRouteReconnect && route != nil && session.coordinate != nil }
     var phase: SimulationDisplayPhase {
@@ -208,39 +214,54 @@ final class RoutePlaybackController: ObservableObject {
     }
 
     func remainingDraft() -> LocationRouteDraft {
-        guard let route, hasActiveRoute, let current = session.coordinate else { return LocationRouteDraft() }
+        guard let route, hasActiveRoute, let origin = simulatedRouteOrigin else { return LocationRouteDraft() }
         var result = LocationRouteDraft(route: route)
         result.originIsAutomatic = true
-        result.rows = [.init(point: .init(name: "Vị trí đang mô phỏng", coordinate: RouteCoordinate(current), source: "simulated"))]
+        result.rows = [.init(point: origin)]
         result.rows += route.waypoints.dropFirst(progress.nextStop + 1).map { .init(point: $0, dwell: $0.dwellSeconds) }
         if result.rows.count < 2 { result.rows.append(.init()) }
         return result
     }
 
     func pauseForEditing() async throws -> RouteEditAnchor? {
-        guard hasActiveRoute || (state == .finished && session.isActive) else {
+        guard canContinueFromBot else {
             if isLocked { throw LocationWorkflowError.busy }
             return nil
         }
+        let editGeneration = generation
         if state == .running { pause(reason: "Đã tạm dừng để áp dụng tuyến sửa. Bấm Tiếp tục khi sẵn sàng.") }
-        while isSending || pausePending {
+        while generation == editGeneration && (isSending || pausePending) {
             try Task.checkCancellation()
             try await Task.sleep(for: .milliseconds(30))
         }
-        guard [.paused, .finished].contains(state), let current = session.coordinate, let route else { throw LocationWorkflowError.busy }
+        try Task.checkCancellation()
+        guard generation == editGeneration, [.paused, .finished].contains(state),
+              !holdUnconfirmed, let origin = simulatedRouteOrigin, let route else {
+            throw LocationWorkflowError.simulationOriginUnavailable
+        }
         let completed = Set(route.waypoints.dropFirst().prefix(progress.nextStop).map(\.id))
-        return .init(coordinate: RouteCoordinate(current), remainingRest: progress.dwellRemaining, restName: restName, completedIDs: completed)
+        return .init(generation: editGeneration, coordinate: origin.coordinate, remainingRest: progress.dwellRemaining,
+                     restName: restName, completedIDs: completed)
     }
 
-    func installDraft(_ route: SavedSimulationRoute, anchor: RouteEditAnchor?) throws {
+    func installDraft(_ route: SavedSimulationRoute, anchor: RouteEditAnchor?, keepPrevious: Bool = false) async throws {
         let route = try route.validated()
         if let anchor {
-            guard !isSending, [.paused, .finished].contains(state) else { throw LocationWorkflowError.busy }
+            while generation == anchor.generation && isSending {
+                try await Task.sleep(for: .milliseconds(30))
+            }
+            try Task.checkCancellation()
+            guard generation == anchor.generation, [.paused, .finished].contains(state),
+                  !holdUnconfirmed, simulatedRouteOrigin?.coordinate == anchor.coordinate else {
+                throw LocationWorkflowError.simulationOriginUnavailable
+            }
+            let oldRoute = self.route
             _ = interruptForExternalAction()
             try configure(route)
             progress.setDwellRemaining(anchor.remainingRest)
             initialRestName = anchor.restName
             routeID = session.startRoute(at: anchor.coordinate.clCoordinate, coordinates: route.coordinates.map(\.clCoordinate))
+            if keepPrevious { previousRoute = oldRoute }
             state = .paused
             message = "Đã áp dụng tuyến mới. Bấm Tiếp tục để đi tiếp."
             holdLastCoordinate()

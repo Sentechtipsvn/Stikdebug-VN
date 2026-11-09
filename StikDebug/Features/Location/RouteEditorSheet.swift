@@ -40,7 +40,7 @@ struct RouteEditorSheet: View {
                 if currentLocation.isLoading { ProgressView("Đang lấy điểm đi hiện tại…") }
                 if let error = error ?? currentLocation.error { Text(error).font(.footnote).foregroundStyle(.red) }
                 if isCalculating { ProgressView("Đang tính các chặng…") }
-                if playback.hasActiveRoute && !replacesFromSelectedOrigin {
+                if playback.hasActiveRoute && !replacesFromSelectedOrigin && !store.draft.anchorsDetourToBot {
                     Text("Tuyến đang chạy vẫn được giữ khi soạn bản nháp. Khi áp dụng, app sẽ tạm dừng và tính phần đường còn lại từ vị trí đang mô phỏng.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
@@ -110,23 +110,22 @@ struct RouteEditorSheet: View {
     }
 
     private var calculateTitle: String {
-        if store.draft.rows.last?.point?.source == "shortcut" { return "Định tuyến" }
+        if store.draft.replacement == .detour || store.draft.rows.last?.point?.source == "shortcut" { return "Định tuyến" }
         return playback.hasActiveRoute ? "Áp dụng" : "Tính tuyến"
     }
 
-    private var canContinueFromBot: Bool {
-        playback.hasActiveRoute || (playback.state == .finished && playback.needsLocationRestore)
-    }
-
     private var replacesFromSelectedOrigin: Bool {
-        store.draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: canContinueFromBot)
+        store.draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: playback.canContinueFromBot)
     }
 
     private var replacementExplanation: String {
         if replacesFromSelectedOrigin {
             return "Dùng điểm đi Sếp đã chọn. Khi tính được, app sẽ tắt phiên mô phỏng cũ nếu cần và giữ tuyến cũ ở mục Mở lại tuyến trước."
         }
-        if canContinueFromBot {
+        if store.draft.anchorsDetourToBot {
+            return "App sẽ giữ bot tại vị trí đã xác nhận lúc áp dụng để tính nhánh mới. Tuyến cũ sẽ có trong mục Mở lại tuyến trước."
+        }
+        if playback.canContinueFromBot {
             return "Dùng vị trí bot làm điểm đi mới. App bỏ các trạm đã qua và giữ thời gian nghỉ còn lại ở trạm hiện tại."
         }
         return "Cập nhật tuyến đang hiển thị bằng các điểm trong bản nháp."
@@ -246,7 +245,13 @@ struct RouteEditorSheet: View {
                     }
                 }.buttonStyle(.borderless).padding(.vertical, 4)
             }
-            .onMove { from, to in if !isCalculating { store.draft.rows.move(fromOffsets: from, toOffset: to); store.draft.dirty = true; store.draft.originIsAutomatic = false } }
+            .onMove { from, to in
+                guard !isCalculating else { return }
+                let originID = store.draft.rows.first?.id
+                store.draft.rows.move(fromOffsets: from, toOffset: to)
+                if store.draft.rows.first?.id != originID { store.draft.originIsAutomatic = false }
+                store.draft.dirty = true
+            }
             .onDelete { offsets in
                 if !isCalculating && store.draft.rows.count - offsets.count >= 2 {
                     if offsets.contains(0) { store.draft.originIsAutomatic = false }
@@ -274,6 +279,12 @@ struct RouteEditorSheet: View {
                 store.draft.originIsAutomatic = true
                 store.draft.dirty = true
                 requestOriginIfNeeded()
+            }.font(.caption).disabled(loading)
+        }
+        if store.draft.replacement == .detour, !store.draft.originIsAutomatic, let origin = playback.simulatedRouteOrigin {
+            Button("Lấy vị trí đang mô phỏng", systemImage: "location") {
+                originCandidate = nil
+                store.useBotAsOrigin(origin)
             }.font(.caption).disabled(loading)
         }
         if store.draft.replacement != nil || playback.needsLocationRestore {
@@ -315,7 +326,7 @@ struct RouteEditorSheet: View {
     }
 
     private func requestOriginIfNeeded() {
-        guard store.draft.originIsAutomatic else { return }
+        guard store.draft.originIsAutomatic, !store.draft.anchorsDetourToBot else { return }
         if LocationSimulationSession.shared.isActive, let point = LocationSimulationSession.shared.coordinate {
             store.acceptAutomaticOrigin(.init(name: "Vị trí đang mô phỏng", coordinate: RouteCoordinate(point), source: "simulated"))
         } else { currentLocation.request() }
@@ -335,8 +346,9 @@ struct RouteEditorSheet: View {
         let selectedVehicle = vehicle
         task = Task {
             do {
-                let replacesRoute = draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: canContinueFromBot)
+                let replacesRoute = draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: playback.canContinueFromBot)
                 let anchor = replacesRoute ? nil : try await playback.pauseForEditing()
+                if draft.anchorsDetourToBot && anchor == nil { throw LocationWorkflowError.simulationOriginUnavailable }
                 try Task.checkCancellation()
                 let points: [RouteWaypoint]
                 if let anchor { points = try draft.rebased(at: anchor.coordinate, completedIDs: anchor.completedIDs) }
@@ -349,7 +361,7 @@ struct RouteEditorSheet: View {
                     if !route.roadSpeeds.isEmpty { route.roadSpeeds.insert(route.roadSpeeds[0], at: 0) }
                 }
                 if replacesRoute { try await playback.replaceRoute(with: route) }
-                else { try playback.installDraft(route, anchor: anchor) }
+                else { try await playback.installDraft(route, anchor: anchor, keepPrevious: draft.anchorsDetourToBot) }
                 store.didApply(route)
                 onApply(route)
                 dismiss()
