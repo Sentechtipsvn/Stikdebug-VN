@@ -8,6 +8,10 @@ actions = workflow["WFWorkflowActions"]
 assert len(actions) == 10
 assert workflow["WFWorkflowInputContentItemClasses"] == ["WFURLContentItem", "WFStringContentItem"]
 assert "ActionExtension" in workflow["WFWorkflowTypes"]
+# Text and URL fields use the token string structure exported by Shortcuts.
+for action in actions:
+    if action["WFWorkflowActionIdentifier"].rsplit(".", 1)[-1] in {"urlencode", "openurl"}:
+        assert action["WFWorkflowActionParameters"]["WFInput"]["WFSerializationType"] == "WFTextTokenString"
 
 def run(shared):
     outputs, opened, branch = {}, [], True
@@ -46,8 +50,14 @@ def run(shared):
 
 assert run(None) == "stikdebugvn://create-route"
 assert run("") == "stikdebugvn://create-route"
-for payload in ["10.87139,106.73716", "https://maps.apple.com/?ll=10.87139,106.73716&q=Nhà & Kho + #1", "Quán cà phê\nhttps://maps.app.goo.gl/aBc?x=1&y=2", "https://www.google.com/maps/search/?api=1&query=10.87139%2C106.73716"]:
+for payload in [
+    "10.87139,106.73716",
+    "https://maps.apple.com/?ll=10.87139,106.73716&q=Nhà & Kho + #1",
+    "Quán cà phê\nhttps://maps.app.goo.gl/aBc?x=1&y=2",
+    "\nhttps://maps.app.goo.gl/TestPin?g_st=com.apple.shortcuts.Run-Workflow.(null)",
+    "https://www.google.com/maps/search/?api=1&query=10.87139%2C106.73716",
+]:
     url = urllib.parse.urlsplit(run(payload))
     assert (url.scheme, url.netloc) == ("stikdebugvn", "receive-location")
     assert urllib.parse.parse_qs(url.query) == {"input": [payload]}
-print("PASS: 6 bridge routing/encoding cases; 10 native actions validated")
+print("PASS: 7 bridge routing/encoding cases; 10 native actions validated")

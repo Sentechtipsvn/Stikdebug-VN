@@ -17,20 +17,20 @@ def action(name, identifier, **params):
 def build():
     group = uid("if-group")
     actions = [
-        action("comment", "comment", WFCommentActionText="StikDebug VN · 3.2.2\n© Sentechtipsvn\nChia sẻ link Google/Apple Maps → chọn cách dùng trong StikDebug VN. Mở không có đầu vào → soạn tuyến. Điểm dừng và thời gian nghỉ nhập trong ứng dụng."),
+        action("comment", "comment", WFCommentActionText="StikDebug VN · 3.2.9\n© Sentechtipsvn\nChia sẻ link Google/Apple Maps → chọn cách dùng trong StikDebug VN. Mở không có đầu vào → soạn tuyến. Điểm dừng và thời gian nghỉ nhập trong ứng dụng."),
         action("if", "conditional", GroupingIdentifier=group, WFControlFlowMode=0, WFCondition=100,
                WFInput={"Type": "Variable", "Variable": attachment({"Type": "ExtensionInput"})}),
         action("text", "gettext", WFTextActionText=token({"Type": "ExtensionInput"})),
-        action("encode", "urlencode", WFEncodeMode="Encode", WFInput=output("text")),
+        action("encode", "urlencode", WFEncodeMode="Encode", WFInput=token(output("text")["Value"])),
         action("receive", "url", WFURLActionURL=token(output("encode")["Value"], "stikdebugvn://receive-location?input=")),
-        action("open-receive", "openurl", WFInput=output("receive")),
+        action("open-receive", "openurl", WFInput=token(output("receive")["Value"])),
         action("otherwise", "conditional", GroupingIdentifier=group, WFControlFlowMode=1),
         action("compose", "url", WFURLActionURL="stikdebugvn://create-route"),
-        action("open-compose", "openurl", WFInput=output("compose")),
+        action("open-compose", "openurl", WFInput=token(output("compose")["Value"])),
         action("end-if", "conditional", GroupingIdentifier=group, WFControlFlowMode=2),
     ]
     workflow = {
-        "WFWorkflowName": "StikDebug VN", "WFWorkflowActions": actions,
+        "WFWorkflowName": "StikDebug VN · Gửi vị trí", "WFWorkflowActions": actions,
         "WFQuickActionSurfaces": [], "WFWorkflowClientVersion": "5037.109",
         "WFWorkflowHasOutputFallback": False, "WFWorkflowHasShortcutInputVariables": True,
         "WFWorkflowIcon": {"WFWorkflowIconGlyphNumber": 59769, "WFWorkflowIconStartColor": 0x34C759FF},

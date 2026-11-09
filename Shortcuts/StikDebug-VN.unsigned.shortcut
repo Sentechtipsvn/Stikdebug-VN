@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>WFWorkflowName</key>
-	<string>StikDebug VN</string>
+	<string>StikDebug VN · Gửi vị trí</string>
 	<key>WFWorkflowActions</key>
 	<array>
 		<dict>
@@ -14,7 +14,7 @@
 				<key>UUID</key>
 				<string>2F959007-1BCA-5C03-967F-661C65488C39</string>
 				<key>WFCommentActionText</key>
-				<string>StikDebug VN · 3.2.2
+				<string>StikDebug VN · 3.2.9
 © Sentechtipsvn
 Chia sẻ link Google/Apple Maps → chọn cách dùng trong StikDebug VN. Mở không có đầu vào → soạn tuyến. Điểm dừng và thời gian nghỉ nhập trong ứng dụng.</string>
 			</dict>
@@ -89,15 +89,23 @@ Chia sẻ link Google/Apple Maps → chọn cách dùng trong StikDebug VN. Mở
 				<dict>
 					<key>Value</key>
 					<dict>
-						<key>Type</key>
-						<string>ActionOutput</string>
-						<key>OutputUUID</key>
-						<string>A1D59E57-8053-5E77-8EF6-70786099AA33</string>
-						<key>OutputName</key>
-						<string>Text</string>
+						<key>string</key>
+						<string>￼</string>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>ActionOutput</string>
+								<key>OutputUUID</key>
+								<string>A1D59E57-8053-5E77-8EF6-70786099AA33</string>
+								<key>OutputName</key>
+								<string>Text</string>
+							</dict>
+						</dict>
 					</dict>
 					<key>WFSerializationType</key>
-					<string>WFTextTokenAttachment</string>
+					<string>WFTextTokenString</string>
 				</dict>
 			</dict>
 		</dict>
@@ -143,15 +151,23 @@ Chia sẻ link Google/Apple Maps → chọn cách dùng trong StikDebug VN. Mở
 				<dict>
 					<key>Value</key>
 					<dict>
-						<key>Type</key>
-						<string>ActionOutput</string>
-						<key>OutputUUID</key>
-						<string>6E6DEADE-1E05-52CF-B75C-376CE7C229F1</string>
-						<key>OutputName</key>
-						<string>URL</string>
+						<key>string</key>
+						<string>￼</string>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>ActionOutput</string>
+								<key>OutputUUID</key>
+								<string>6E6DEADE-1E05-52CF-B75C-376CE7C229F1</string>
+								<key>OutputName</key>
+								<string>URL</string>
+							</dict>
+						</dict>
 					</dict>
 					<key>WFSerializationType</key>
-					<string>WFTextTokenAttachment</string>
+					<string>WFTextTokenString</string>
 				</dict>
 			</dict>
 		</dict>
@@ -190,15 +206,23 @@ Chia sẻ link Google/Apple Maps → chọn cách dùng trong StikDebug VN. Mở
 				<dict>
 					<key>Value</key>
 					<dict>
-						<key>Type</key>
-						<string>ActionOutput</string>
-						<key>OutputUUID</key>
-						<string>62839B26-1FDC-5C4E-BC3F-1061FA3F94B8</string>
-						<key>OutputName</key>
-						<string>URL</string>
+						<key>string</key>
+						<string>￼</string>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>ActionOutput</string>
+								<key>OutputUUID</key>
+								<string>62839B26-1FDC-5C4E-BC3F-1061FA3F94B8</string>
+								<key>OutputName</key>
+								<string>URL</string>
+							</dict>
+						</dict>
 					</dict>
 					<key>WFSerializationType</key>
-					<string>WFTextTokenAttachment</string>
+					<string>WFTextTokenString</string>
 				</dict>
 			</dict>
 		</dict>

@@ -290,10 +290,12 @@ struct VNLocationSimulationView: View {
                 Text(selectingProbe ? "Chạm đường xanh để đặt mốc" : playback.statusTitle)
                     .font(.subheadline.weight(.semibold)).foregroundStyle(playback.isResting ? .orange : .primary)
                 Spacer(minLength: 8)
-                if let speed = playback.displaySpeedKmh {
-                    Text("\(Int(speed.rounded())) km/h").font(.headline.monospacedDigit())
-                        .accessibilityLabel("Tốc độ mô phỏng \(Int(speed.rounded())) ki lô mét một giờ")
-                }
+                let speed = playback.displaySpeedKmh
+                let rounded = Int((speed ?? 0).rounded())
+                Text("\(rounded) km/h").font(.headline.monospacedDigit())
+                    .opacity(speed == nil ? 0 : 1)
+                    .accessibilityHidden(speed == nil)
+                    .accessibilityLabel("Tốc độ mô phỏng \(rounded) ki lô mét một giờ")
             }
             if let message = playback.message {
                 Text(message).font(.caption).foregroundStyle(playback.state == .failed || playback.holdUnconfirmed ? .red : .secondary)
@@ -332,7 +334,7 @@ struct VNLocationSimulationView: View {
                     returnGPSButton
                     mainPlaybackButton
                     Button("Sửa tuyến") { openEditor() }.buttonStyle(.bordered).disabled(!canDraft)
-                }.font(.subheadline)
+                }.font(.subheadline).lineLimit(1).minimumScaleFactor(0.8)
             } else {
                 if let pin {
                     Text(pin.name).font(.subheadline.weight(.semibold)).lineLimit(1)
@@ -368,26 +370,42 @@ struct VNLocationSimulationView: View {
             .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
     }
 
-    @ViewBuilder private var mainPlaybackButton: some View {
+    private var playbackAction: (title: String, symbol: String, disabled: Bool, run: () -> Void) {
         if playback.holdUnconfirmed {
-            retryHoldButton
-        } else {
-            switch playback.state {
-            case .starting, .stopping: ProgressView().padding(.horizontal)
-            case .running where playback.pausePending:
-                ProgressView().accessibilityLabel("Đang tạm dừng").padding(.horizontal)
-            case .running:
-                Button("Tạm dừng", systemImage: "pause.fill") { playback.pause() }.buttonStyle(.borderedProminent)
-            case .paused:
-                Button("Tiếp tục", systemImage: "play.fill") { playback.resume() }.buttonStyle(.borderedProminent).disabled(playback.isSending)
-            case .failed where playback.canResumeInterruptedRoute:
-                Button("Thử tiếp tục", systemImage: "play.fill") { playback.resume() }
-                    .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
-            default:
-                Button(playback.state == .finished ? "Chạy lại" : "Bắt đầu", systemImage: "play.fill") { playback.start() }
-                    .buttonStyle(.borderedProminent).disabled(!pairingExists || playback.isSending)
+            return ("Thử giữ lại", "location.circle", !pairingExists || playback.isSending, { playback.refreshHeldCoordinate() })
+        }
+        switch playback.state {
+        case .starting: return ("Bắt đầu", "play.fill", true, {})
+        case .stopping: return ("Về GPS thật", "location.fill", true, {})
+        case .running: return ("Tạm dừng", "pause.fill", playback.pausePending, { playback.pause() })
+        case .paused: return ("Tiếp tục", "play.fill", playback.isSending, { playback.resume() })
+        case .failed where playback.canResumeInterruptedRoute:
+            return ("Thử tiếp tục", "play.fill", !pairingExists || playback.isSending, { playback.resume() })
+        default:
+            return (playback.state == .finished ? "Chạy lại" : "Bắt đầu", "play.fill",
+                    !pairingExists || playback.isSending, { playback.start() })
+        }
+    }
+
+    private var mainPlaybackButton: some View {
+        let action = playbackAction
+        let isWaiting = playback.pausePending || [.starting, .stopping].contains(playback.state)
+        return Button(action: action.run) {
+            HStack(spacing: 6) {
+                ZStack {
+                    if isWaiting { ProgressView().controlSize(.small).tint(.white) }
+                    else { Image(systemName: action.symbol) }
+                }.frame(width: 18, height: 18)
+                ZStack {
+                    Text("Thử tiếp tục").hidden()
+                    Text(action.title)
+                }
             }
         }
+        .buttonStyle(.borderedProminent)
+        .layoutPriority(1)
+        .disabled(action.disabled)
+        .accessibilityLabel(isWaiting ? playback.statusTitle : action.title)
     }
 
     private func setProbe(at distance: Double) {

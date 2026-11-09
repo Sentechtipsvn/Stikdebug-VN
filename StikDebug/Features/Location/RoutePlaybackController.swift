@@ -263,7 +263,6 @@ final class RoutePlaybackController: ObservableObject {
             routeID = session.startRoute(at: anchor.coordinate.clCoordinate, coordinates: route.coordinates.map(\.clCoordinate))
             if keepPrevious { previousRoute = oldRoute }
             state = .paused
-            message = "Đã áp dụng tuyến mới. Bấm Tiếp tục để đi tiếp."
             holdLastCoordinate()
         } else { try load(route) }
     }
@@ -325,7 +324,6 @@ final class RoutePlaybackController: ObservableObject {
         if isSending {
             pausePending = true
             pendingPauseReason = reason
-            message = "Đã nhận lệnh tạm dừng. Đang chờ tọa độ cuối."
             return
         }
         completePause(reason: reason)

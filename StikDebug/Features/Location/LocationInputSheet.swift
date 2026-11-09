@@ -6,6 +6,7 @@ struct LocationInputSheet: View {
     let title: String
     let onSelect: (RouteWaypoint) -> Void
     private let initialInput: String
+    private let initialResult: LocationInputResult?
     private let allowDeviceLocation: Bool
     @StateObject private var deviceLocation = CurrentLocationProvider()
     @StateObject private var completer = LocationSearchCompleter()
@@ -20,9 +21,11 @@ struct LocationInputSheet: View {
     @State private var requestID = UUID()
     @State private var task: Task<Void, Never>?
 
-    init(title: String, initialInput: String = "", allowDeviceLocation: Bool = true, onSelect: @escaping (RouteWaypoint) -> Void) {
+    init(title: String, initialInput: String = "", initialResult: LocationInputResult? = nil,
+         allowDeviceLocation: Bool = true, onSelect: @escaping (RouteWaypoint) -> Void) {
         self.title = title
         self.initialInput = initialInput
+        self.initialResult = initialResult
         self.onSelect = onSelect
         self.allowDeviceLocation = allowDeviceLocation
         _text = State(initialValue: initialInput)
@@ -132,7 +135,7 @@ struct LocationInputSheet: View {
                 if let data = UserDefaults.standard.data(forKey: "locationBookmarks") {
                     bookmarks = (try? JSONDecoder().decode([LocationBookmark].self, from: data)) ?? []
                 }
-                if !initialInput.isEmpty { resolve() }
+                if !initialInput.isEmpty { resolve(initialResult) }
             }
             .onReceive(deviceLocation.$result) { if let value = $0 { candidate = value } }
             .onDisappear { invalidateRequest(); deviceLocation.cancel() }
@@ -146,7 +149,7 @@ struct LocationInputSheet: View {
     private func apply(_ point: RouteWaypoint) { onSelect(point); dismiss() }
     private func invalidateRequest() { task?.cancel(); task = nil; requestID = UUID(); isResolving = false }
 
-    private func resolve() {
+    private func resolve(_ initialResult: LocationInputResult? = nil) {
         invalidateRequest()
         let id = requestID
         let input = text
@@ -155,7 +158,9 @@ struct LocationInputSheet: View {
         completer.update(query: "")
         task = Task {
             do {
-                let result = try await LocationInputResolver.resolve(input)
+                let result: LocationInputResult
+                if let initialResult { result = initialResult }
+                else { result = try await LocationInputResolver.resolve(input) }
                 guard !Task.isCancelled, requestID == id else { return }
                 switch result {
                 case .coordinate(let point, let name): candidate = .init(name: name ?? coordinateText(point), coordinate: point, source: "link")

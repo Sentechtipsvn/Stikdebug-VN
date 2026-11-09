@@ -12,6 +12,7 @@ struct IncomingLocationSheet: View {
     @State private var point: RouteWaypoint?
     @State private var isLoading = true
     @State private var error: String?
+    @State private var selection: LocationInputResult?
     @State private var needsPicker = false
     @State private var showPicker = false
     @State private var confirmPin = false
@@ -22,11 +23,25 @@ struct IncomingLocationSheet: View {
         return playback.route != nil && playback.state != .finished
     }
 
+    private var pickerInput: String {
+        if case .search(let query)? = selection { return query }
+        return request.input ?? ""
+    }
+
+    private var selectionHint: String? {
+        switch selection {
+        case .search(let query)?: return "Vị trí được chia sẻ theo tên “\(query)”. Chọn kết quả để xem ghim."
+        case .multiple?: return "Link chứa nhiều điểm. Chọn điểm Sếp muốn dùng."
+        default: return nil
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 if isLoading { ProgressView("Đang đọc vị trí được chia sẻ…") }
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+                if let hint = selectionHint { Text(hint).font(.footnote).foregroundStyle(.secondary) }
                 if let point {
                     Section(point.source == "shortcut" ? "Tọa độ từ Phím tắt" : "Vị trí đã chọn") {
                         Text(point.name).font(.headline)
@@ -73,9 +88,10 @@ struct IncomingLocationSheet: View {
                 Button("Hủy", role: .cancel) {}
             } message: { Text("App sẽ dùng tọa độ vừa nhận làm điểm đến. Điểm đi và các điểm dừng vẫn có trong bản nháp.") }
             .sheet(isPresented: $showPicker) {
-                LocationInputSheet(title: "Chọn điểm được chia sẻ", initialInput: request.input ?? "") { point in
+                LocationInputSheet(title: "Chọn điểm được chia sẻ", initialInput: pickerInput, initialResult: selection) { point in
                     self.point = point
                     self.error = nil
+                    selection = nil
                     showPicker = false
                 }
             }
@@ -97,7 +113,7 @@ struct IncomingLocationSheet: View {
                     switch result {
                     case .coordinate(let coordinate, let name): point = .init(name: name ?? "Địa điểm được chia sẻ", coordinate: coordinate, source: "shortcut")
                     case .search, .multiple:
-                        error = "Cần chọn đúng điểm trước khi dùng. Bấm Chọn điểm chính xác để xem kết quả."
+                        selection = result
                         needsPicker = true
                     case .unresolvedURL: throw LocationInputError.noExactCoordinate
                     }
