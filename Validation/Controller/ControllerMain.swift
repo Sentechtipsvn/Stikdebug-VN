@@ -52,6 +52,7 @@ struct ControllerValidation {
         try await editAtRest()
         try await commandOrdering()
         try await interruptedConnection()
+        try await visualMarker()
         try await probeAndHold()
         try await detourReplacement()
         try await workspacePersistence()
@@ -315,6 +316,24 @@ struct ControllerValidation {
         expect(p.isResting && p.restName == "Trạm B", "Original timed stop remains after the probe")
         p.stop()
         try await waitUntil("clear probe") { p.state == .ready && !session.isActive }
+    }
+
+    static func visualMarker() async throws {
+        let clock = ManualClock()
+        let p = try await controller(clock)
+        await tick(p, clock, at: 0.2)
+        let confirmed = RouteCoordinate(session.coordinate!)
+        clock.value = 0.45
+        let displayed = p.visualPose(interpolate: true)!
+        expect(p.animatesRouteMarker && near(a.distance(to: displayed.coordinate), 1), "Visual arrow interpolates the confirmed step")
+        expect(near(a.distance(to: confirmed), 2) && p.visualPose(interpolate: false)?.coordinate == confirmed,
+               "Visual interpolation does not change the acknowledged GPS")
+        p.pause()
+        expect(!p.animatesRouteMarker && p.visualPose(interpolate: true)?.coordinate == confirmed,
+               "A stopped arrow shows the last confirmed point without drift")
+        p.stop()
+        try await waitUntil("clear visual marker") { p.state == .ready && !session.isActive }
+        expect(p.visualPose(interpolate: true) == nil, "Returning to real GPS removes the arrow")
     }
 
     static func detourReplacement() async throws {

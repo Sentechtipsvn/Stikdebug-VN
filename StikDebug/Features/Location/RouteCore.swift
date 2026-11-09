@@ -167,6 +167,17 @@ struct RoutePath: Sendable {
         return coordinates[i].interpolated(to: coordinates[i + 1], fraction: length > 0 ? (distance - cumulativeDistances[i]) / length : 0)
     }
 
+    func bearing(at distance: Double) -> Double? {
+        guard let start = coordinate(at: distance - 3), let end = coordinate(at: distance + 3), start != end else { return nil }
+        let radians = Double.pi / 180
+        let a = start.latitude * radians
+        let b = end.latitude * radians
+        let delta = (end.longitude - start.longitude) * radians
+        let east = sin(delta) * cos(b)
+        let north = cos(a) * sin(b) - sin(a) * cos(b) * cos(delta)
+        return atan2(east, north) / radians
+    }
+
     func nearestDistance(to coordinate: RouteCoordinate, within tolerance: Double) -> Double? {
         guard coordinates.count >= 2, coordinate.isValid else { return nil }
         let longitudeScale = cos(coordinate.latitude * .pi / 180)
@@ -196,6 +207,17 @@ struct RoutePath: Sendable {
         if offset > 180 { return offset - 360 }
         if offset < -180 { return offset + 360 }
         return offset
+    }
+}
+
+struct RouteVisualStep {
+    let fromDistance: Double
+    let toDistance: Double
+    let confirmedAt: TimeInterval
+
+    func distance(at now: TimeInterval) -> Double {
+        let fraction = min(1, max(0, (now - confirmedAt) / 0.5))
+        return fromDistance + (toDistance - fromDistance) * fraction
     }
 }
 

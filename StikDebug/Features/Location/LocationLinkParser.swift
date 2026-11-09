@@ -32,6 +32,29 @@ enum LocationLinkParser {
         return coordinate.isValid ? coordinate : nil
     }
 
+    static func sharedCoordinatePair(_ text: String) -> RouteCoordinate? {
+        if let point = coordinatePair(text) { return point }
+        let part = #"(\d{1,3})\s*[°º]\s*(\d{1,2})\s*['′]\s*(\d{1,2}(?:\.\d+)?)\s*["″]\s*"#
+        let pattern = #"^\s*"# + part + #"([NS])\s*[,;]?\s*"# + part + #"([EW])\s*$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else { return nil }
+
+        func value(at index: Int) -> Double? {
+            func group(_ i: Int) -> Substring? {
+                Range(match.range(at: i), in: text).map { text[$0] }
+            }
+            guard let degrees = group(index).flatMap({ Double($0) }),
+                  let minutes = group(index + 1).flatMap({ Double($0) }),
+                  let seconds = group(index + 2).flatMap({ Double($0) }),
+                  let direction = group(index + 3)?.uppercased(), minutes < 60, seconds < 60 else { return nil }
+            let decimal = degrees + minutes / 60 + seconds / 3600
+            return direction == "S" || direction == "W" ? -decimal : decimal
+        }
+        guard let latitude = value(at: 1), let longitude = value(at: 5) else { return nil }
+        let point = RouteCoordinate(latitude: latitude, longitude: longitude)
+        return point.isValid ? point : nil
+    }
+
     static func isAllowed(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased(),
               url.user == nil, url.password == nil, url.port == nil || url.port == 443 else { return false }
@@ -42,7 +65,7 @@ enum LocationLinkParser {
     static func parse(_ raw: String, depth: Int = 0) throws -> LocationInputResult {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, text.count <= 16_384 else { throw LocationInputError.invalid }
-        if let point = coordinatePair(text) { return .coordinate(point, nil) }
+        if let point = sharedCoordinatePair(text) { return .coordinate(point, nil) }
         if text.lowercased().hasPrefix("geo:") {
             if let point = coordinatePair(String(text.dropFirst(4)).components(separatedBy: "?")[0]) { return .coordinate(point, nil) }
             throw LocationInputError.invalid

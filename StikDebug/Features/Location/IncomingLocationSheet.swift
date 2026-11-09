@@ -57,7 +57,9 @@ struct IncomingLocationSheet: View {
                     }
                 }
                 if needsPicker || point != nil {
-                    Button(point == nil ? "Chọn điểm chính xác" : "Chọn lại vị trí", systemImage: "mappin.and.ellipse") { showPicker = true }
+                    Button(point == nil && request.input == nil ? "Dán link hoặc chọn ghim" :
+                           point == nil ? "Chọn điểm chính xác" : "Chọn lại vị trí",
+                           systemImage: "mappin.and.ellipse") { showPicker = true }
                 }
             }
             .navigationTitle("Vị trí từ Phím tắt").navigationBarTitleDisplayMode(.inline).tint(.green)
@@ -78,8 +80,13 @@ struct IncomingLocationSheet: View {
                 }
             }
             .task(id: request.id) {
+                guard let input = request.input else {
+                    error = "Chưa nhận được link hoặc tọa độ hợp lệ từ Phím tắt. Sếp có thể dán link bản đồ hoặc chọn lại ghim."
+                    needsPicker = true
+                    isLoading = false
+                    return
+                }
                 do {
-                    guard let input = request.input else { throw LocationWorkflowError.invalidRequest }
                     let result = try await LocationInputResolver.resolve(input)
                     try Task.checkCancellation()
                     switch result {

@@ -141,18 +141,23 @@ struct MainTabView: View {
 
         switch host {
         case "receive-location", "create-route":
+            let request: LocationReceiveRequest
             do {
-                let request = try LocationReceiveRequest.parse(url)
-                // Draft state lives outside sheets, so sharing another point cannot discard it.
-                if detachedFeature != nil || awaitingFeatureDismiss {
-                    pendingRouteRequest = request
-                    awaitingFeatureDismiss = true
-                    detachedFeature = nil
-                } else {
-                    showLocationRequest(request)
-                }
+                request = try LocationReceiveRequest.parse(url)
             } catch {
-                showAlert(title: "Yêu cầu vị trí không hợp lệ", message: error.localizedDescription, showOk: true)
+                guard let recovery = LocationReceiveRequest.recovery(for: url) else {
+                    showAlert(title: "Yêu cầu vị trí không hợp lệ", message: error.localizedDescription, showOk: true)
+                    return
+                }
+                request = recovery
+            }
+            // Draft state lives outside sheets, so sharing another point cannot discard it.
+            if detachedFeature != nil || awaitingFeatureDismiss {
+                pendingRouteRequest = request
+                awaitingFeatureDismiss = true
+                detachedFeature = nil
+            } else {
+                showLocationRequest(request)
             }
         case "simulate-location", "set-location":
             confirmSimulatedLocation(from: url)

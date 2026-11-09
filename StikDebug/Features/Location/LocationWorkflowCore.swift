@@ -144,19 +144,33 @@ enum LocationWorkflowError: LocalizedError {
 struct LocationReceiveRequest: Identifiable, Equatable {
     let id: UUID
     let input: String?
-    var isCompose: Bool { input == nil }
+    let isCompose: Bool
 
-    init(input: String?) { id = UUID(); self.input = input }
+    private init(input: String? = nil, isCompose: Bool = false) {
+        id = UUID()
+        self.input = input
+        self.isCompose = isCompose
+    }
 
-    static func parse(_ url: URL) throws -> Self {
+    private static func endpoint(_ url: URL) -> URLComponents? {
         guard url.scheme?.lowercased() == "stikdebugvn", url.user == nil, url.password == nil, url.port == nil, (url.path.isEmpty || url.path == "/"),
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let host = components.host?.lowercased(), ["receive-location", "create-route"].contains(host) else { throw LocationWorkflowError.invalidRequest }
+              let host = components.host?.lowercased(), ["receive-location", "create-route"].contains(host) else { return nil }
+        return components
+    }
+
+    static func recovery(for url: URL) -> Self? {
+        guard endpoint(url)?.host?.lowercased() == "receive-location" else { return nil }
+        return Self()
+    }
+
+    static func parse(_ url: URL) throws -> Self {
+        guard let components = endpoint(url) else { throw LocationWorkflowError.invalidRequest }
         let items = components.queryItems ?? []
         for name in ["input", "lat", "lon", "name"] {
             guard items.filter({ $0.name == name }).count <= 1 else { throw LocationWorkflowError.invalidRequest }
         }
-        if host == "create-route" { return Self(input: nil) }
+        if components.host?.lowercased() == "create-route" { return Self(isCompose: true) }
         if let text = items.first(where: { $0.name == "input" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
             guard text.count <= 16_384 else { throw LocationWorkflowError.invalidRequest }
             return Self(input: text)
@@ -164,7 +178,7 @@ struct LocationReceiveRequest: Identifiable, Equatable {
         let lat = items.first(where: { $0.name == "lat" })?.value
         let lon = items.first(where: { $0.name == "lon" })?.value
         if lat != nil || lon != nil {
-            guard let lat, let lon, LocationLinkParser.coordinatePair(lat + "," + lon) != nil else { throw LocationWorkflowError.invalidRequest }
+            guard let lat, let lon, LocationLinkParser.sharedCoordinatePair(lat + "," + lon) != nil else { throw LocationWorkflowError.invalidRequest }
             return Self(input: lat + "," + lon)
         }
         throw LocationWorkflowError.invalidRequest

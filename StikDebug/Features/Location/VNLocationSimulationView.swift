@@ -43,10 +43,12 @@ private enum RouteConfirmation: Identifiable {
 }
 
 struct VNLocationSimulationView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = RoutePlaybackController.shared
     @ObservedObject private var session = LocationSimulationSession.shared
     @ObservedObject private var tunnel = TunnelManager.shared
     @State private var camera: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var displayCamera: MapCamera?
     @ObservedObject private var workspace = LocationWorkspaceStore.shared
     @State private var modal: LocationModal?
     @State private var nextModal: LocationModal?
@@ -75,15 +77,14 @@ struct VNLocationSimulationView: View {
             Map(position: $camera) {
                 if let polyline { MapPolyline(polyline).stroke(.green, lineWidth: 5) }
                 routeMarkers
-                if let coordinate = session.coordinate {
-                    Marker(simulationMarkerTitle, coordinate: coordinate).tint(.blue)
-                }
                 if let probe = playback.probeCoordinate {
                     Marker("Mốc dò", systemImage: "scope", coordinate: probe.clCoordinate).tint(.orange)
                 }
             }
             .mapStyle(.standard(elevation: .realistic))
             .mapControls { MapCompass() }
+            .onMapCameraChange(frequency: .continuous) { context in displayCamera = context.camera }
+            .overlay { simulationArrow(using: proxy, camera: displayCamera) }
             .onTapGesture { point in
                 guard let coordinate = proxy.convert(point, from: .local) else { return }
                 if selectingProbe {
@@ -99,6 +100,26 @@ struct VNLocationSimulationView: View {
                 workspace.selectedPin = .init(name: "Điểm trên bản đồ", coordinate: RouteCoordinate(coordinate), source: "map")
             }
         }
+    }
+
+    private func simulationArrow(using proxy: MapProxy, camera: MapCamera?) -> some View {
+        let animated = !reduceMotion && playback.animatesRouteMarker
+        let heading = camera?.heading ?? 0
+        return TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animated)) { _ in
+            if let pose = playback.visualPose(interpolate: animated),
+               let position = proxy.convert(pose.coordinate.clCoordinate, to: .local) {
+                let color: Color = playback.holdUnconfirmed || playback.state == .failed ? .orange : .blue
+                Image(systemName: pose.bearing == nil ? "circle.fill" : "location.north.fill")
+                    .font(.system(size: pose.bearing == nil ? 12 : 22, weight: .semibold))
+                    .foregroundStyle(color)
+                    .frame(width: 34, height: 34)
+                    .background(.background, in: Circle())
+                    .overlay { Circle().strokeBorder(color.opacity(0.65), lineWidth: 2) }
+                    .rotationEffect(.degrees((pose.bearing ?? heading) - heading))
+                    .accessibilityLabel(simulationMarkerTitle)
+                    .position(position)
+            }
+        }.allowsHitTesting(false).clipped()
     }
 
     @MapContentBuilder private var routeMarkers: some MapContent {

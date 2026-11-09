@@ -34,6 +34,12 @@ let middle = path.coordinate(at: path.totalDistance / 2)!
 expect(abs(middle.latitude - (a.latitude + b.latitude) / 2) < 0.000001, "Distance interpolation")
 let dateline = RouteCoordinate(latitude: 0, longitude: 179).interpolated(to: .init(latitude: 0, longitude: -179), fraction: 0.5)
 expect(abs(dateline.longitude) == 180, "Antimeridian uses shortest segment")
+let corner = RoutePath(coordinates: [.init(latitude: 0, longitude: 0), .init(latitude: 0.001, longitude: 0), .init(latitude: 0.001, longitude: 0.001)])
+expect(abs(corner.bearing(at: 1)!) < 0.1, "Arrow faces north on the first leg")
+expect(abs(corner.bearing(at: corner.totalDistance - 1)! - 90) < 0.1, "Arrow faces east after the turn")
+let step = RouteVisualStep(fromDistance: 10, toDistance: 20, confirmedAt: 5)
+expect(step.distance(at: 4) == 10 && step.distance(at: 5.25) == 15 && step.distance(at: 7) == 20,
+       "Animation moves between confirmed distances and never extrapolates")
 
 var progress = RouteProgress()
 let stops = [RouteDwell(distance: 50, seconds: 3)]
@@ -55,6 +61,12 @@ expect(LocationLinkParser.coordinatePair("10.87139, 106.73716") == a, "Coordinat
 expect(LocationLinkParser.coordinatePair("10.87139;106.73716") == a, "Semicolon coordinate pair")
 expect(LocationLinkParser.coordinatePair("90.1, 106") == nil, "Invalid coordinate is not swapped")
 expect(LocationLinkParser.coordinatePair("street 10, house 20") == nil, "Street numbers not coordinates")
+let sharedDMS = #"11°30'36.0"N 107°15'36.0"E"#
+if case .coordinate(let point, _) = try LocationLinkParser.parse(sharedDMS) {
+    expect(abs(point.latitude - 11.51) < 0.00000001 && abs(point.longitude - 107.26) < 0.00000001,
+           "Google Maps degrees-minutes-seconds title becomes a coordinate")
+} else { expect(false, "Shared DMS title should resolve") }
+expect(LocationLinkParser.sharedCoordinatePair(#"10°60'1"N 106°43'1"E"#) == nil, "Reject out-of-range DMS minutes")
 expect(try LocationLinkParser.parse("https://maps.apple.com/?ll=10.87139,106.73716&q=Nh%C3%A0") == .coordinate(a, "Nhà"), "Apple Maps coordinate and label")
 expect(try LocationLinkParser.parse("https://maps.apple.com/place?coordinate=10.87139%2C106.73716&name=Ghim") == .coordinate(a, "Ghim"), "Apple Maps shared pin")
 expect(try LocationLinkParser.parse("https://maps.apple.com/search?query=10.87139%2C106.73716&center=10.5%2C106.5") == .coordinate(a, nil), "Apple Maps search pin wins over the map center")
@@ -121,6 +133,14 @@ for input in inputs {
 }
 expect(try LocationReceiveRequest.parse(URL(string: "stikdebugvn://create-route")!).isCompose, "Home shortcut opens editor")
 expect(try LocationReceiveRequest.parse(URL(string: "stikdebugvn://receive-location?lat=10&lon=106")!).input == "10,106", "Receiver supports direct coordinate parameters")
+var dmsLink = URLComponents(string: "stikdebugvn://receive-location")!
+dmsLink.queryItems = [.init(name: "lat", value: #"11°30'36.0"N"#), .init(name: "lon", value: #"107°15'36.0"E"#)]
+expect(try LocationReceiveRequest.parse(dmsLink.url!).input != nil, "Receiver accepts separate DMS coordinate parameters")
+let recovery = LocationReceiveRequest.recovery(for: URL(string: "stikdebugvn://receive-location?input=")!)
+expect(recovery?.input == nil && recovery?.isCompose == false, "An empty receive payload opens the location recovery panel")
+expect(LocationReceiveRequest.recovery(for: URL(string: "stikdebugvn://user@receive-location")!) == nil &&
+       LocationReceiveRequest.recovery(for: URL(string: "stikdebugvn://create-route")!) == nil,
+       "Recovery never accepts credential-bearing links or turns compose into a receive request")
 for invalid in ["stikdebug://receive-location?input=x", "stikdebugvn://simulate-location?input=x", "stikdebugvn://receive-location?input=x&input=y", "stikdebugvn://receive-location?lat=91&lon=106", "stikdebugvn://receive-location?lat=10", "stikdebugvn://user@receive-location?input=x", "stikdebugvn://receive-location:123/?input=x"] {
     expectThrows("Invalid receive URL: \(invalid)") { _ = try LocationReceiveRequest.parse(URL(string: invalid)!) }
 }

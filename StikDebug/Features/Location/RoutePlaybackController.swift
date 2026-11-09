@@ -46,6 +46,7 @@ final class RoutePlaybackController: ObservableObject {
     @Published var speedMode: RouteSpeedMode = .fixed { didSet { route?.speedMode = speedMode } }
 
     private var path = RoutePath(coordinates: [])
+    private var visualStep: RouteVisualStep?
     private var dwells: [RouteDwell] = []
     private var task: Task<Void, Never>?
     private var routeID: UUID?
@@ -112,6 +113,18 @@ final class RoutePlaybackController: ObservableObject {
         return progress.distance >= probeDistance
     }
     var probeCoordinate: RouteCoordinate? { probeDistance.flatMap { path.coordinate(at: $0) } }
+    var animatesRouteMarker: Bool { state == .running && !isResting && !pausePending && visualStep != nil }
+
+    func visualPose(interpolate: Bool) -> (coordinate: RouteCoordinate, bearing: Double?)? {
+        guard let coordinate = session.coordinate else { return nil }
+        let confirmed = RouteCoordinate(coordinate)
+        guard routeID != nil || state == .finished || canResumeInterruptedRoute else { return (confirmed, nil) }
+        if interpolate, animatesRouteMarker, let visualStep {
+            let distance = visualStep.distance(at: clock())
+            if let point = path.coordinate(at: distance) { return (point, path.bearing(at: distance)) }
+        }
+        return (confirmed, path.bearing(at: progress.distance))
+    }
 
     func setProbe(at distance: Double) throws {
         guard !isSending, state != .starting, state != .stopping else { throw LocationWorkflowError.busy }
@@ -155,6 +168,7 @@ final class RoutePlaybackController: ObservableObject {
         speedKmh = validated.speedKmh
         speedMode = validated.speedMode
         path = RoutePath(coordinates: validated.coordinates)
+        visualStep = nil
         var points: [RouteCoordinate] = []
         dwells = []
         for (index, leg) in validated.legs.enumerated() {
@@ -177,6 +191,7 @@ final class RoutePlaybackController: ObservableObject {
         guard !isLocked else { return }
         route = nil
         path = RoutePath(coordinates: [])
+        visualStep = nil
         progress = RouteProgress()
         probeDistance = nil
         dwells = []
@@ -319,6 +334,7 @@ final class RoutePlaybackController: ObservableObject {
     }
 
     private func runFromCurrentProgress() {
+        visualStep = nil
         state = .running
         message = nil
         lastUptime = clock()
@@ -344,6 +360,7 @@ final class RoutePlaybackController: ObservableObject {
     @discardableResult
     func interruptForExternalAction() -> UUID {
         generation = UUID()
+        visualStep = nil
         task?.cancel()
         task = nil
         routeID = nil
@@ -442,6 +459,7 @@ final class RoutePlaybackController: ObservableObject {
         let code = await send(point, pairing: PairingFileStore.prepareURL().path, reconnect: false)
         guard generation == token, session.isCurrentRoute(id), state == .running else { return }
         guard code == 0 else { fail(code); return }
+        visualStep = .init(fromDistance: progress.distance, toDistance: candidate.distance, confirmedAt: clock())
         progress = candidate
         session.updateCoordinate(point.clCoordinate)
         if candidate.distance >= path.totalDistance {
