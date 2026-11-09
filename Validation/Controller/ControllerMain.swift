@@ -244,6 +244,8 @@ struct ControllerValidation {
         expect(restored.draft == store.draft, "Draft including duration persists after editor disappears")
         expect(p.route!.id == previousRoute && p.state == .running, "Receiving destination and stop keeps live route untouched")
         expect(restored.draft.rows.first?.point?.source == "simulated", "Automatic origin clearly uses simulated coordinate")
+        expect(restored.draft.rows.last?.point?.source == "shortcut", "Shared destination retains its Shortcut source")
+        expect(!restored.draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: p.hasActiveRoute), "Automatic start continues from the bot")
         let restoredID = store.draft.id
         store.prepareEditor(playback: p)
         expect(store.draft.id == restoredID, "Reopening preserves dirty draft")
@@ -251,6 +253,15 @@ struct ControllerValidation {
         store.setPoint(bookmark, rowID: store.draft.rows[0].id)
         store.acceptAutomaticOrigin(.init(name: "late GPS", coordinate: c))
         expect(store.draft.rows[0].point == bookmark, "Late location callback cannot overwrite chosen bookmark origin")
+        store.receiveDestination(.init(name: "Ghim khác", coordinate: b, source: "map"), playback: p)
+        expect(store.draft.rows[0].point == bookmark && store.draft.rows.last?.point?.coordinate == b,
+               "A second shared pin updates the destination and keeps a manually selected origin")
+        expect(store.draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: p.hasActiveRoute),
+               "Explicit origin uses the replacement path instead of rebasing from the bot")
+        expect(!store.draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: false),
+               "Ordinary planning from a chosen origin can load directly")
+        expect(store.draft.rows[1].dwell == 90 && p.state == .running,
+               "Accepting a shared destination preserves stops and does not apply or start a route")
         _ = p.interruptForExternalAction()
         session.stop()
         store.discardDraft()

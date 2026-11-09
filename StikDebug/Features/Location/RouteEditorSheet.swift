@@ -40,7 +40,7 @@ struct RouteEditorSheet: View {
                 if currentLocation.isLoading { ProgressView("Đang lấy điểm đi hiện tại…") }
                 if let error = error ?? currentLocation.error { Text(error).font(.footnote).foregroundStyle(.red) }
                 if isCalculating { ProgressView("Đang tính các chặng…") }
-                if playback.hasActiveRoute && store.draft.replacement == nil {
+                if playback.hasActiveRoute && !replacesFromSelectedOrigin {
                     Text("Tuyến đang chạy vẫn được giữ khi soạn bản nháp. Khi áp dụng, app sẽ tạm dừng và tính phần đường còn lại từ vị trí đang mô phỏng.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
@@ -51,13 +51,13 @@ struct RouteEditorSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Đóng") { dismiss() } }
                 ToolbarItemGroup(placement: .confirmationAction) {
                     EditButton().disabled(isCalculating)
-                    Button(playback.hasActiveRoute ? "Áp dụng" : "Tính tuyến") {
+                    Button(calculateTitle) {
                         if playback.route != nil { confirmReplacement = true } else { calculate() }
                     }.fontWeight(.semibold).disabled(!canCalculate)
                 }
             }
             .confirmationDialog("Áp dụng bản nháp tuyến?", isPresented: $confirmReplacement, titleVisibility: .visible) {
-                Button(store.draft.replacement == nil ? "Tính và áp dụng" : "Tính và thay tuyến") { calculate() }
+                Button(replacesFromSelectedOrigin ? "Tính và thay tuyến" : "Tính và áp dụng") { calculate() }
                 Button("Hủy", role: .cancel) {}
             } message: { Text(replacementExplanation) }
             .alert("Khóa API Geoapify", isPresented: $editMotorcycleKey) {
@@ -79,9 +79,10 @@ struct RouteEditorSheet: View {
                         }
                     }
                 } else {
-                    let manualOrigin = store.draft.replacement != nil && store.draft.rows.first?.id == item.id
+                    let isOrigin = store.draft.rows.first?.id == item.id
+                    let manualOrigin = isOrigin && store.draft.replacement != nil
                     LocationInputSheet(title: item.title, allowDeviceLocation: !manualOrigin) { point in
-                        if manualOrigin { originCandidate = nil }
+                        if isOrigin { originCandidate = nil }
                         store.setPoint(point, rowID: item.id)
                         editing = nil
                     }
@@ -90,7 +91,7 @@ struct RouteEditorSheet: View {
             .task { requestOriginIfNeeded() }
             .onReceive(currentLocation.$result) { value in
                 guard let value else { return }
-                if store.draft.replacement != nil { originCandidate = value }
+                if currentLocation.requestedFreshLocation { originCandidate = value }
                 else { store.acceptAutomaticOrigin(value) }
             }
             .onDisappear {
@@ -108,11 +109,24 @@ struct RouteEditorSheet: View {
             (1...300).contains(store.draft.speedKmh) && (vehicle != .motorcycle || motorcycleKey != nil)
     }
 
+    private var calculateTitle: String {
+        if store.draft.rows.last?.point?.source == "shortcut" { return "Định tuyến" }
+        return playback.hasActiveRoute ? "Áp dụng" : "Tính tuyến"
+    }
+
+    private var canContinueFromBot: Bool {
+        playback.hasActiveRoute || (playback.state == .finished && playback.needsLocationRestore)
+    }
+
+    private var replacesFromSelectedOrigin: Bool {
+        store.draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: canContinueFromBot)
+    }
+
     private var replacementExplanation: String {
-        if store.draft.replacement != nil {
+        if replacesFromSelectedOrigin {
             return "Dùng điểm đi Sếp đã chọn. Khi tính được, app sẽ tắt phiên mô phỏng cũ nếu cần và giữ tuyến cũ ở mục Mở lại tuyến trước."
         }
-        if playback.hasActiveRoute || (playback.state == .finished && playback.needsLocationRestore) {
+        if canContinueFromBot {
             return "Dùng vị trí bot làm điểm đi mới. App bỏ các trạm đã qua và giữ thời gian nghỉ còn lại ở trạm hiện tại."
         }
         return "Cập nhật tuyến đang hiển thị bằng các điểm trong bản nháp."
@@ -210,32 +224,16 @@ struct RouteEditorSheet: View {
                                 if let point = row.point {
                                     Text(String(format: "%.5f, %.5f", point.coordinate.latitude, point.coordinate.longitude))
                                         .font(.caption.monospaced()).foregroundStyle(.secondary)
+                                    if index == store.draft.rows.count - 1 && point.source == "shortcut" {
+                                        Text("Từ Phím tắt").font(.caption2).foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                             Spacer()
                             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
                         }.contentShape(Rectangle())
                     }.disabled(isCalculating || originTask != nil || (index == 0 && currentLocation.isLoading))
-                    if index == 0 {
-                        if store.draft.replacement != nil {
-                            Button("Lấy GPS thật mới", systemImage: "location") {
-                                if playback.needsLocationRestore { confirmFreshLocation = true }
-                                else { captureFreshOrigin() }
-                            }.font(.caption).disabled(isCalculating || originTask != nil || currentLocation.isLoading)
-                                .confirmationDialog("Tắt mô phỏng để lấy GPS thật?", isPresented: $confirmFreshLocation, titleVisibility: .visible) {
-                                    Button("Tắt và lấy GPS mới") { captureFreshOrigin() }
-                                    Button("Hủy", role: .cancel) {}
-                                } message: {
-                                    Text("Tuyến vẫn được giữ. App sẽ chờ thiết bị tắt mô phỏng rồi cho Sếp xem ghim mới.")
-                                }
-                        } else {
-                            Button("Lấy lại vị trí hiện tại", systemImage: "location") {
-                                store.draft.originIsAutomatic = true
-                                store.draft.dirty = true
-                                requestOriginIfNeeded()
-                            }.font(.caption).disabled(isCalculating || currentLocation.isLoading)
-                        }
-                    }
+                    if index == 0 { originButtons }
                     if index > 0 && index < store.draft.rows.count - 1 {
                         Button { editing = .init(id: row.id, title: row.point?.name ?? rowTitle(index), editsDuration: true) } label: {
                             HStack {
@@ -264,6 +262,31 @@ struct RouteEditorSheet: View {
             }.disabled(isCalculating || store.draft.rows.count >= 100)
         } header: { Text("Các điểm theo thứ tự") } footer: {
             Text("Chọn điểm bằng link, tọa độ, Dấu trang hoặc bản đồ. Mỗi trạm có thời gian nghỉ riêng và tự đi tiếp khi hết giờ.")
+        }
+    }
+
+    @ViewBuilder private var originButtons: some View {
+        let loading = isCalculating || originTask != nil || currentLocation.isLoading
+        if store.draft.replacement == nil {
+            let isSimulating = LocationSimulationSession.shared.isActive
+            Button(isSimulating ? "Lấy vị trí đang mô phỏng" : "Lấy vị trí hiện tại", systemImage: "location") {
+                originCandidate = nil
+                store.draft.originIsAutomatic = true
+                store.draft.dirty = true
+                requestOriginIfNeeded()
+            }.font(.caption).disabled(loading)
+        }
+        if store.draft.replacement != nil || playback.needsLocationRestore {
+            Button("Lấy GPS thật mới", systemImage: "location.circle") {
+                if playback.needsLocationRestore { confirmFreshLocation = true }
+                else { captureFreshOrigin() }
+            }.font(.caption).disabled(loading)
+                .confirmationDialog("Tắt mô phỏng để lấy GPS thật?", isPresented: $confirmFreshLocation, titleVisibility: .visible) {
+                    Button("Tắt và lấy GPS mới") { captureFreshOrigin() }
+                    Button("Hủy", role: .cancel) {}
+                } message: {
+                    Text("Tuyến vẫn được giữ. App sẽ chờ thiết bị tắt mô phỏng rồi cho Sếp xem ghim mới.")
+                }
         }
     }
 
@@ -312,7 +335,8 @@ struct RouteEditorSheet: View {
         let selectedVehicle = vehicle
         task = Task {
             do {
-                let anchor = draft.replacement == nil ? try await playback.pauseForEditing() : nil
+                let replacesRoute = draft.replacesRouteFromSelectedOrigin(whileContinuingRoute: canContinueFromBot)
+                let anchor = replacesRoute ? nil : try await playback.pauseForEditing()
                 try Task.checkCancellation()
                 let points: [RouteWaypoint]
                 if let anchor { points = try draft.rebased(at: anchor.coordinate, completedIDs: anchor.completedIDs) }
@@ -324,7 +348,7 @@ struct RouteEditorSheet: View {
                     route.legs[0].coordinates.insert(anchor.coordinate, at: 0)
                     if !route.roadSpeeds.isEmpty { route.roadSpeeds.insert(route.roadSpeeds[0], at: 0) }
                 }
-                if draft.replacement != nil { try await playback.replaceRoute(with: route) }
+                if replacesRoute { try await playback.replaceRoute(with: route) }
                 else { try playback.installDraft(route, anchor: anchor) }
                 store.didApply(route)
                 onApply(route)

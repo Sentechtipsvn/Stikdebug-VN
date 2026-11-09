@@ -34,7 +34,9 @@ final class LocationWorkspaceStore: ObservableObject {
 
     func receiveDestination(_ point: RouteWaypoint, playback: RoutePlaybackController) {
         prepareEditor(playback: playback)
-        draft.setDestination(point)
+        var destination = point
+        destination.source = "shortcut"
+        draft.setDestination(destination)
         useSimulationAsOriginIfAutomatic()
     }
 

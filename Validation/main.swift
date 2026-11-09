@@ -56,13 +56,18 @@ expect(LocationLinkParser.coordinatePair("10.87139;106.73716") == a, "Semicolon 
 expect(LocationLinkParser.coordinatePair("90.1, 106") == nil, "Invalid coordinate is not swapped")
 expect(LocationLinkParser.coordinatePair("street 10, house 20") == nil, "Street numbers not coordinates")
 expect(try LocationLinkParser.parse("https://maps.apple.com/?ll=10.87139,106.73716&q=Nh%C3%A0") == .coordinate(a, "Nhà"), "Apple Maps coordinate and label")
+expect(try LocationLinkParser.parse("https://maps.apple.com/place?coordinate=10.87139%2C106.73716&name=Ghim") == .coordinate(a, "Ghim"), "Apple Maps shared pin")
+expect(try LocationLinkParser.parse("https://maps.apple.com/search?query=10.87139%2C106.73716&center=10.5%2C106.5") == .coordinate(a, nil), "Apple Maps search pin wins over the map center")
 expect(try LocationLinkParser.parse("https://www.google.com/maps/search/?api=1&query=10.87139%2C106.73716") == .coordinate(a, nil), "Google query coordinates")
 expect(try LocationLinkParser.parse("https://www.google.com/maps/place/Example/data=!3d10.87139!4d106.73716") == .coordinate(a, nil), "Google explicit marker")
+expect(try LocationLinkParser.parse("Ghim\nhttps://www.google.com/maps/place/10.87139,+106.73716/@10.5,106.5,16z") == .coordinate(a, nil), "Google coordinate pin wins over the map center")
 expect(try LocationLinkParser.parse("Tên địa điểm\nhttps://maps.apple.com/?coordinate=10.87139,106.73716") == .coordinate(a, nil), "Shared text and URL")
 if case .unresolvedURL = try LocationLinkParser.parse("https://maps.app.goo.gl/a1b2c3") { expect(true, "Opaque short link requires network") }
 else { expect(false, "Short link token must not become coordinates") }
 if case .unresolvedURL = try LocationLinkParser.parse("https://www.google.com/maps/@10.87139,106.73716,15z") { expect(true, "Viewport not destination") }
 else { expect(false, "Viewport must not silently become destination") }
+if case .unresolvedURL = try LocationLinkParser.parse("https://maps.apple.com/frame?center=10.87139,106.73716") { expect(true, "Apple map center is not a pin") }
+else { expect(false, "Apple map center must not silently become a destination") }
 expect(try LocationLinkParser.parse("https://www.google.com/maps/dir/?api=1&origin=10.87139,106.73716&destination=10.81483,106.71086") == .multiple([a, b]), "Direction endpoints require selection")
 expect(try LocationLinkParser.parse("123 Đường số 7") == .search("123 Đường số 7"), "Search text preserved")
 expectThrows("Foreign host rejected") { _ = try LocationLinkParser.parse("https://example.com/?q=10,106") }

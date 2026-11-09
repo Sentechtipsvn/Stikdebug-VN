@@ -71,7 +71,7 @@ enum LocationLinkParser {
         let host = url.host?.lowercased() ?? ""
         let isApple = host == "maps.apple.com" || host == "maps.apple" || host.hasSuffix(".maps.apple")
         let title = value(["name", "q"])
-        if let explicit = value(isApple ? ["coordinate", "ll", "q"] : ["query", "q"]), let point = coordinatePair(explicit) {
+        if let explicit = value(isApple ? ["coordinate", "ll", "query", "q"] : ["query", "q"]), let point = coordinatePair(explicit) {
             return .coordinate(point, title.flatMap { coordinatePair($0) == nil ? $0 : nil })
         }
         if let lat = value(["lat", "latitude"]), let lon = value(["lon", "lng", "longitude"]), let point = coordinatePair(lat + "," + lon) {
@@ -101,9 +101,14 @@ enum LocationLinkParser {
                 if points.count > 1 { return .multiple(points) }
                 if let point = points.first { return .coordinate(point, title) }
             }
+            let segments = components.path.split(separator: "/")
+            if segments.count >= 3, segments[0] == "maps", segments[1] == "place",
+               let point = coordinatePair(segments[2].replacingOccurrences(of: "+", with: " ")) {
+                return .coordinate(point, title)
+            }
         }
         // Never interpret a viewport (@lat,lon), a place ID, a token, or street numbers as an exact destination.
-        if let address = value(isApple ? ["address", "q", "name"] : ["query", "q"]), coordinatePair(address) == nil {
+        if let address = value(isApple ? ["address", "query", "q", "name"] : ["query", "q"]), coordinatePair(address) == nil {
             return .search(address)
         }
         return .unresolvedURL(url)

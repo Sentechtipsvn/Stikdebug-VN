@@ -12,6 +12,7 @@ final class CurrentLocationProvider: NSObject, ObservableObject, CLLocationManag
     private var timeout: Task<Void, Never>?
     private var requestedAt = Date()
     private var freshAfter: Date?
+    var requestedFreshLocation: Bool { freshAfter != nil }
 
     override init() {
         super.init()

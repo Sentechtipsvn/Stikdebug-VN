@@ -91,6 +91,11 @@ struct LocationRouteDraft: Codable, Identifiable, Equatable, Sendable {
     }
 
     var hasDestination: Bool { rows.count >= 2 && rows.last?.point != nil }
+
+    func replacesRouteFromSelectedOrigin(whileContinuingRoute: Bool) -> Bool {
+        replacement != nil || (whileContinuingRoute && !originIsAutomatic)
+    }
+
     var points: [RouteWaypoint]? {
         guard rows.count >= 2, rows.allSatisfy({ $0.point != nil }) else { return nil }
         return rows.map { row in var point = row.point!; point.dwellSeconds = row.dwell; return point }

@@ -50,6 +50,7 @@ struct VNLocationSimulationView: View {
     @ObservedObject private var workspace = LocationWorkspaceStore.shared
     @State private var modal: LocationModal?
     @State private var nextModal: LocationModal?
+    @State private var awaitingModalDismiss = false
     @State private var polyline: MKPolyline?
     @State private var showImporter = false
     @State private var showSaveRoute = false
@@ -172,6 +173,7 @@ struct VNLocationSimulationView: View {
     var body: some View {
         mapPage
         .sheet(item: $modal, onDismiss: {
+            awaitingModalDismiss = false
             if let action = deferredConfirmation { deferredConfirmation = nil; confirmation = action }
             else if workspace.incoming != nil { receivePendingInput() }
             else if let queued = nextModal { nextModal = nil; modal = queued }
@@ -418,9 +420,10 @@ struct VNLocationSimulationView: View {
     }
 
     private func receivePendingInput() {
-        guard confirmation == nil, deferredConfirmation == nil, let request = workspace.incoming else { return }
+        guard !awaitingModalDismiss, confirmation == nil, deferredConfirmation == nil, let request = workspace.incoming else { return }
+        nextModal = nil
         if modal != nil {
-            nextModal = nil
+            awaitingModalDismiss = true
             modal = nil
             return
         }
@@ -434,12 +437,10 @@ struct VNLocationSimulationView: View {
             switch choice {
             case .destination:
                 workspace.receiveDestination(point, playback: playback)
-                nextModal = .editor
-                modal = nil
+                openEditorAfterReceive()
             case .stop:
                 try workspace.receiveStop(point, playback: playback)
-                nextModal = .editor
-                modal = nil
+                openEditorAfterReceive()
             case .pin:
                 modal = nil
                 Task {
@@ -452,6 +453,12 @@ struct VNLocationSimulationView: View {
                 }
             }
         } catch { self.error = error.localizedDescription }
+    }
+
+    private func openEditorAfterReceive() {
+        nextModal = .editor
+        awaitingModalDismiss = true
+        modal = nil
     }
 
     private func choosePin(_ point: RouteWaypoint) {
