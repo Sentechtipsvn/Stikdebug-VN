@@ -1,0 +1,106 @@
+name: Prepare StikDebug VN AltStore Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful Build StikDebug VN IPA run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: stikdebug-vn-altstore-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Verify build run
+        id: build
+        env:
+          RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" |
+            jq -er --arg repo "$GITHUB_REPOSITORY" '
+              select(.path == ".github/workflows/build_ipa.yml" and
+                     .head_repository.full_name == $repo and
+                     .status == "completed" and .conclusion == "success") |
+              .head_sha | select(test("^[0-9a-f]{40}$"))
+            ')
+          {
+            echo "sha=$sha"
+            echo "pattern=StikDebug-VN-*-${sha:0:7}.ipa"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download the verified IPA
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ steps.build.outputs.pattern }}
+          path: release
+          merge-multiple: true
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Prepare draft with IPA and AltStore source
+        env:
+          BUILD_SHA: ${{ steps.build.outputs.sha }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          ipas=(release/*.ipa)
+          if [[ ${#ipas[@]} -ne 1 ]]; then
+            echo "Expected exactly one VN IPA artifact" >&2
+            exit 1
+          fi
+          ipa=${ipas[0]}
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
+            jq 'add // []' > release/existing-releases.json
+          previous=$(jq -r '[.[] | select(.draft == false and .prerelease == false and
+            (.tag_name | startswith("vn-v")))] | first | .tag_name // empty' release/existing-releases.json)
+          prior_args=()
+          if [[ -n "$previous" ]]; then
+            gh release download "$previous" --pattern altstore.json --output release/previous.json
+            prior_args=(--previous release/previous.json)
+          fi
+          tag=$(python3 .github/scripts/make_altstore_source.py "$ipa" \
+            --repository "$GITHUB_REPOSITORY" --commit "$BUILD_SHA" \
+            --releases release/existing-releases.json "${prior_args[@]}" --output release/altstore.json)
+
+          refs=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" \
+            "refs/tags/$tag" "refs/tags/$tag^{}")
+          tagged_sha=$(printf '%s\n' "$refs" | tail -1 | cut -f1)
+          if [[ -n "$tagged_sha" && "$tagged_sha" != "$BUILD_SHA" ]]; then
+            echo "Existing tag belongs to a different build" >&2
+            exit 1
+          fi
+          if jq -e --arg tag "$tag" 'any(.[]; .tag_name == $tag)' release/existing-releases.json > /dev/null; then
+            jq -e --arg tag "$tag" --arg sha "$BUILD_SHA" \
+              'any(.[]; .tag_name == $tag and .draft and .target_commitish == $sha)' \
+              release/existing-releases.json > /dev/null
+            gh release upload "$tag" "$ipa" release/altstore.json --clobber
+          else
+            title=$(jq -r '.apps[0].versions[0] | "StikDebug VN \(.version) (\(.buildVersion))"' release/altstore.json)
+            gh release create "$tag" "$ipa" release/altstore.json \
+              --target "$BUILD_SHA" --draft --title "$title" \
+              --notes "Verified build $BUILD_SHA. Source code: https://github.com/$GITHUB_REPOSITORY/tree/$BUILD_SHA. Review the draft and mark it Latest when publishing."
+          fi
+          draft_url=$(gh release view "$tag" --json url --jq .url)
+          {
+            echo "Prepared release: $draft_url"
+            echo "Source URL after publication:"
+            echo "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/altstore.json"
+          } >> "$GITHUB_STEP_SUMMARY"
