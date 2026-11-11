@@ -1,0 +1,58 @@
+{
+  "name": "StikDebug VN",
+  "subtitle": "Nguồn cập nhật StikDebug VN cho AltStore Classic",
+  "website": "https://github.com/dammeiosvn/Stikdebug-VN",
+  "iconURL": "https://raw.githubusercontent.com/dammeiosvn/Stikdebug-VN/bc446cbc4f6267cde2d37e1cd8a2970641a24799/assets/StikDebug.png",
+  "tintColor": "34C759",
+  "featuredApps": [
+    "com.sentechtipsvn.stikdebugvn"
+  ],
+  "apps": [
+    {
+      "name": "StikDebug VN",
+      "bundleIdentifier": "com.sentechtipsvn.stikdebugvn",
+      "developerName": "StikDebug · SenTechTipsVN",
+      "localizedDescription": "StikDebug VN — mô phỏng vị trí GPS và tuyến đường bằng tiếng Việt. Hỗ trợ xe máy/ô tô, nhiều điểm dừng, chỉnh tốc độ, tạm dừng và lưu tuyến.\n\nYêu cầu sử dụng:\n• iOS 17.4 trở lên. Bản VN đã kiểm thử trên iOS 18.7.8; chưa xác nhận giới hạn iOS tối đa.\n• Cài LocalDevVPN và duy trì VPN khi dùng mô phỏng vị trí hoặc JIT.\n• Nhập tệp ghép đôi (pairing) hợp lệ của chính thiết bị.\n• Có kết nối mạng để tải bản đồ và tính tuyến mới.\n\nCài/cập nhật qua AltStore Classic cần AltServer trên máy tính.\n\nBản tuỳ biến từ StikDebug bởi © Sentechtipsvn. Giấy phép AGPL-3.0.",
+      "iconURL": "https://raw.githubusercontent.com/dammeiosvn/Stikdebug-VN/bc446cbc4f6267cde2d37e1cd8a2970641a24799/assets/StikDebug.png",
+      "tintColor": "34C759",
+      "versions": [
+        {
+          "version": "3.2.9",
+          "buildVersion": "9",
+          "date": "2026-11-11",
+          "downloadURL": "https://github.com/dammeiosvn/Stikdebug-VN/releases/download/vn-v3.2.9-build9/StikDebug-VN-3.2.9-bc446cb.ipa",
+          "size": 17983972,
+          "sha256": "c111953c90a202c6df3798df4e217bc7633df63a07b571e1107c48116f295eb2",
+          "minOSVersion": "17.4",
+          "localizedDescription": "• Mô phỏng tuyến xe máy/ô tô, hỗ trợ nhiều điểm dừng và thời gian nghỉ.\n• Chỉnh tốc độ, tạm dừng/tiếp tục và lưu tuyến.\n• Giao diện tiếng Việt, bảng điều khiển gọn và mũi tên di chuyển.\n• Cài đặt và nhận các bản cập nhật qua nguồn AltStore StikDebug VN."
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSLocalNetworkUsageDescription": "StikDebug VN cần truy cập mạng cục bộ để kết nối và gỡ lỗi thiết bị của Sếp.",
+          "NSLocationAlwaysAndWhenInUseUsageDescription": "StikDebug VN dùng vị trí để chọn điểm đi và duy trì phiên mô phỏng hoặc JIT khi chạy nền.",
+          "NSLocationWhenInUseUsageDescription": "StikDebug VN dùng vị trí để chọn điểm đi và duy trì phiên mô phỏng hoặc JIT khi chạy nền."
+        }
+      },
+      "screenshots": [
+        {
+          "imageURL": "https://raw.githubusercontent.com/dammeiosvn/Stikdebug-VN/c5804060bf27bb253faaf8a430a3613f04ba25de/assets/altstore/3.2.9/route-simulation.png",
+          "width": 828,
+          "height": 1792
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/dammeiosvn/Stikdebug-VN/c5804060bf27bb253faaf8a430a3613f04ba25de/assets/altstore/3.2.9/location-hold.png",
+          "width": 828,
+          "height": 1792
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/dammeiosvn/Stikdebug-VN/c5804060bf27bb253faaf8a430a3613f04ba25de/assets/altstore/3.2.9/tools.png",
+          "width": 828,
+          "height": 1792
+        }
+      ]
+    }
+  ],
+  "news": []
+}
