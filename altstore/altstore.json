@@ -1,11 +1,12 @@
 {
   "name": "StikDebug VN",
-  "subtitle": "Nguồn cập nhật StikDebug VN cho AltStore Classic",
+  "subtitle": "StikDebug VN và Sweep · Nguồn ứng dụng SenTechTipsVN",
   "website": "https://github.com/dammeiosvn/Stikdebug-VN",
   "iconURL": "https://raw.githubusercontent.com/dammeiosvn/Stikdebug-VN/bc446cbc4f6267cde2d37e1cd8a2970641a24799/assets/StikDebug.png",
   "tintColor": "34C759",
   "featuredApps": [
-    "com.sentechtipsvn.stikdebugvn"
+    "com.sentechtipsvn.stikdebugvn",
+    "com.sentechtipsvn.sweep"
   ],
   "apps": [
     {
@@ -52,6 +53,37 @@
           "height": 1792
         }
       ]
+    },
+    {
+      "name": "Sweep",
+      "bundleIdentifier": "com.sentechtipsvn.sweep",
+      "developerName": "SenTechTipsVN",
+      "subtitle": "Quản lý đơn và đối soát giao hàng",
+      "localizedDescription": "Sweep giúp nhận ảnh phiếu từ bảng chia sẻ hoặc thư viện Ảnh, quản lý đơn giao hàng, tạo VietQR theo số tiền, chỉ đường Google Maps và đối soát theo tháng.\n\nYêu cầu iOS 17.0 trở lên. Khi cài, giữ tiện ích mở rộng để nhận ảnh từ bảng chia sẻ.",
+      "iconURL": "https://raw.githubusercontent.com/Sentechtipsvn/Sweep/b1ad9da4c92c160d6dca7d32b8f12029222f60c3/Sweep/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+      "tintColor": "34C759",
+      "versions": [
+        {
+          "version": "0.4.0",
+          "buildVersion": "7",
+          "date": "2026-11-14",
+          "downloadURL": "https://raw.githubusercontent.com/Sentechtipsvn/Sweep/a8f31f71fd5b12040a321c5f1c748f75c2b4109c/Releases/0.4.0/Sweep-0.4.0-AltStore.ipa",
+          "size": 1296709,
+          "sha256": "25b01fcd19cc66d84792e9a72d779a14a9526523eb2058477154f75cc92754ef",
+          "minOSVersion": "17.0",
+          "localizedDescription": "• Nhận thêm định dạng ảnh và chọn ảnh từ thư viện.\n• Chọn từng ảnh gửi, nội dung chuyển khoản ngắn gọn.\n• Chỉ đường bằng Google Maps.\n• Hai nguồn ảnh: Chọn ảnh và Chụp ảnh.\n• Đối soát theo tháng, tự chuyển kỳ mới và giữ lịch sử."
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [
+          "com.apple.security.application-groups"
+        ],
+        "privacy": {
+          "NSCameraUsageDescription": "Sweep chụp phiếu đơn hàng, phiếu khách ký hoặc ảnh giao dịch khi Sếp chọn Chụp.",
+          "NSPhotoLibraryAddUsageDescription": "Sweep lưu bản ảnh đã nén vào thư viện khi Sếp chọn Lưu ảnh.",
+          "NSPhotoLibraryUsageDescription": "Sweep đọc những ảnh Sếp cho phép để tìm bản trùng, xem ảnh chụp màn hình và xóa các ảnh Sếp xác nhận."
+        }
+      }
     }
   ],
   "news": []
