@@ -507,7 +507,11 @@ final class RoutePlaybackController: ObservableObject {
         state = .failed
         pausePending = false
         restDeadline = nil
-        message = "Mô phỏng bị gián đoạn (mã \(code)). Kiểm tra kết nối thiết bị rồi thử lại."
+        if code == 3 {
+            message = "Không tạo được Remote Pairing (mã 03). VPN có thể vẫn báo Đã kết nối nhưng phiên thiết bị chưa sẵn sàng. Tuyến được giữ tại điểm cuối đã xác nhận."
+        } else {
+            message = "Mô phỏng bị gián đoạn (mã \(code)). Kiểm tra kết nối thiết bị rồi thử lại."
+        }
         session.pauseResending()
         session.clearRoute()
         routeID = nil

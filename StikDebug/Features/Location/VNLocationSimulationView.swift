@@ -18,6 +18,7 @@ private enum LocationModal: Identifiable {
 
 private enum RouteConfirmation: Identifiable {
     case newRoute, detour, discard, previous, importFile, pin(RouteWaypoint)
+    case restoreGPS, editRoute, recenter
 
     var id: String { title }
     var title: String {
@@ -28,7 +29,22 @@ private enum RouteConfirmation: Identifiable {
         case .previous: return "Mở lại tuyến trước?"
         case .importFile: return "Thay tuyến bằng tệp nhập?"
         case .pin: return "Chuyển sang chọn vị trí?"
+        case .restoreGPS: return "Trở về GPS thật?"
+        case .editRoute: return "Chỉnh sửa tuyến đường?"
+        case .recenter: return "Đang mô phỏng theo tuyến"
         }
+    }
+    var confirmationButtonTitle: String {
+        switch self {
+        case .restoreGPS: return "Đồng ý"
+        case .editRoute: return "Sửa tuyến"
+        case .recenter: return "Về vị trí mô phỏng"
+        default: return "Xác nhận"
+        }
+    }
+    var isDestructive: Bool {
+        if case .restoreGPS = self { return true }
+        return false
     }
     var message: String {
         switch self {
@@ -38,6 +54,9 @@ private enum RouteConfirmation: Identifiable {
         case .previous: return "App sẽ thay bản nháp và chuẩn bị tuyến trước từ đầu. Phiên mô phỏng hiện tại sẽ tắt nếu đang chạy."
         case .importFile: return "Tệp hợp lệ sẽ thay bản nháp và tuyến đang hiển thị."
         case .pin: return "Chọn vị trí này sẽ thay bản nháp và tuyến đang hiển thị."
+        case .restoreGPS: return "Bạn có muốn dừng mô phỏng và khôi phục vị trí GPS thật không?"
+        case .editRoute: return "Tuyến đang mô phỏng. Bạn có muốn chuyển sang chỉnh sửa tuyến không?"
+        case .recenter: return "Bạn muốn đưa bản đồ trở về vị trí đang mô phỏng không? Tọa độ GPS giả sẽ không thay đổi."
         }
     }
 }
@@ -86,14 +105,20 @@ struct VNLocationSimulationView: View {
             .onMapCameraChange(frequency: .continuous) { context in displayCamera = context.camera }
             .overlay { simulationArrow(using: proxy, camera: displayCamera) }
             .onTapGesture { point in
-                guard let coordinate = proxy.convert(point, from: .local) else { return }
+                // Probe placement is deliberate; casual taps never modify simulated GPS.
                 if selectingProbe {
+                    guard let coordinate = proxy.convert(point, from: .local) else { return }
                     do {
                         try playback.setProbe(near: RouteCoordinate(coordinate))
                         selectingProbe = false
                     } catch { self.error = error.localizedDescription }
                     return
                 }
+                if playback.route != nil && playback.needsLocationRestore {
+                    if confirmation == nil { confirmation = .recenter }
+                    return
+                }
+                guard let coordinate = proxy.convert(point, from: .local) else { return }
                 guard canEdit, !hasRouteWork else { return }
                 playback.resetDraft()
                 workspace.discardDraft()
@@ -163,7 +188,11 @@ struct VNLocationSimulationView: View {
                 locationMenu
             }
         }
-        .onAppear { loadBookmarks(); updateMap() }
+        .onAppear {
+            loadBookmarks()
+            updateMap()
+            if playback.hasActiveRoute { centerMapOnSimulatedCoordinate() }
+        }
         .onChange(of: playback.route?.legs) { _, _ in updateMap() }
         .onChange(of: playback.route?.id) { _, _ in selectingProbe = false }
         .onChange(of: confirmation?.id) { _, next in
@@ -180,7 +209,7 @@ struct VNLocationSimulationView: View {
             if let route = playback.route {
                 Section(route.name) {
                     Button("Đổi nhánh từ đây", systemImage: "arrow.triangle.branch") {
-                        if workspace.draft.replacement == .detour { openEditor() }
+                        if workspace.draft.replacement == .detour { requestEditRoute() }
                         else { confirmation = .detour }
                     }.disabled(!canDraft)
                     if selectingProbe {
@@ -194,7 +223,7 @@ struct VNLocationSimulationView: View {
                     Button("Lưu tuyến", systemImage: "square.and.arrow.down") { name = route.name; showSaveRoute = true }
                 }
             }
-            Button("Tạo / sửa tuyến", systemImage: "point.topleft.down.curvedto.point.bottomright.up") { openEditor() }.disabled(!canDraft)
+            Button("Tạo / sửa tuyến", systemImage: "point.topleft.down.curvedto.point.bottomright.up") { requestEditRoute() }.disabled(!canDraft)
             Button("Tuyến đã lưu", systemImage: "tray.full") { modal = .library }.disabled(!canEdit)
             Button("Dấu trang", systemImage: "bookmark.fill") { loadBookmarks(); modal = .bookmarks }.disabled(!canEdit)
             Button("Nhập GPX, KML, CSV…", systemImage: "square.and.arrow.down") {
@@ -257,8 +286,10 @@ struct VNLocationSimulationView: View {
         .alert(confirmation?.title ?? "", isPresented: Binding(
             get: { confirmation != nil }, set: { if !$0 { confirmation = nil } }
         ), presenting: confirmation) { action in
-            Button("Xác nhận") { applyConfirmation(action) }
-            Button("Hủy", role: .cancel) {}
+            Button(action.confirmationButtonTitle, role: action.isDestructive ? .destructive : nil) {
+                applyConfirmation(action)
+            }
+            Button("Hủy bỏ", role: .cancel) {}
         } message: { action in Text(action.message) }
         .confirmationDialog("Dò tới mốc", isPresented: $showProbeOptions, titleVisibility: .visible) {
             Button("2 km từ điểm đi") { setProbe(at: 2_000) }
@@ -333,7 +364,7 @@ struct VNLocationSimulationView: View {
                 HStack(spacing: 8) {
                     returnGPSButton
                     mainPlaybackButton
-                    Button("Sửa tuyến") { openEditor() }.buttonStyle(.bordered).disabled(!canDraft)
+                    Button("Sửa tuyến") { requestEditRoute() }.buttonStyle(.bordered).disabled(!canDraft)
                 }.font(.subheadline).lineLimit(1).minimumScaleFactor(0.8)
             } else {
                 if let pin {
@@ -360,7 +391,9 @@ struct VNLocationSimulationView: View {
 
     @ViewBuilder private var returnGPSButton: some View {
         if session.isActive || playback.isLocked || playback.state == .failed {
-            Button("Về GPS thật", role: .destructive) { playback.stop() }.buttonStyle(.bordered)
+            Button("Về GPS thật", role: .destructive) {
+                if confirmation == nil { confirmation = .restoreGPS }
+            }.buttonStyle(.bordered)
                 .disabled(playback.state == .stopping)
         }
     }
@@ -415,6 +448,14 @@ struct VNLocationSimulationView: View {
 
     private func applyConfirmation(_ action: RouteConfirmation) {
         switch action {
+        case .restoreGPS:
+            guard playback.needsLocationRestore, playback.state != .stopping else { return }
+            playback.stop()
+        case .editRoute:
+            guard canDraft else { return }
+            openEditor()
+        case .recenter:
+            centerMapOnSimulatedCoordinate()
         case .newRoute, .detour:
             guard canDraft else { return }
             let replacement: RouteDraftReplacement
@@ -442,9 +483,24 @@ struct VNLocationSimulationView: View {
         }
     }
 
+    private func requestEditRoute() {
+        guard canDraft, confirmation == nil else { return }
+        if playback.route != nil && playback.needsLocationRestore {
+            confirmation = .editRoute
+        } else {
+            openEditor()
+        }
+    }
+
     private func openEditor() {
         workspace.prepareEditor(playback: playback)
         modal = .editor
+    }
+
+    private func centerMapOnSimulatedCoordinate() {
+        guard let coordinate = session.coordinate else { return }
+        // Only change map camera; do not write a new simulated GPS coordinate.
+        camera = .region(.init(center: coordinate, latitudinalMeters: 800, longitudinalMeters: 800))
     }
 
     private func receivePendingInput() {

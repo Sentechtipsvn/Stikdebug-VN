@@ -40,7 +40,10 @@ struct StikDebugApp: App {
             SigningExpiryReminder.shared.refresh()
             if shouldAttemptTunnelReconnect {
                 shouldAttemptTunnelReconnect = false
-                startTunnelInBackground(showErrorUI: false)
+                // Do not disrupt a live simulation when returning from another app.
+                if !LocationSimulationSession.shared.isActive {
+                    startTunnelInBackground(showErrorUI: false)
+                }
             }
         default:
             break

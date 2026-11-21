@@ -854,7 +854,8 @@ func simulate_location(_ deviceIP: String, _ latitude: Double, _ longitude: Doub
 private func connectLocationSimulation(_ deviceIP: String, _ pairingFile: String) -> Int32 {
     var address = sockaddr_in()
     address.sin_family = sa_family_t(AF_INET)
-    address.sin_port = in_port_t(RemotePairingPortResolver.resolve(targetIPAddress: deviceIP)).bigEndian
+    let pairingPort = RemotePairingPortResolver.resolve(targetIPAddress: deviceIP)
+    address.sin_port = in_port_t(pairingPort).bigEndian
 
     let inetResult = deviceIP.withCString { inet_pton(AF_INET, $0, &address.sin_addr) }
     guard inetResult == 1 else {
@@ -890,6 +891,12 @@ private func connectLocationSimulation(_ deviceIP: String, _ pairingFile: String
     }
 
     if let providerError {
+        // Code 3 is the app's status; retain the underlying FFI code in the log.
+        let ffiCode = providerError.pointee.code
+        let ffiDetail = providerError.pointee.message.flatMap { String(validatingUTF8: $0) } ?? "Unknown FFI error"
+        LogManager.shared.addErrorLog(
+            "Location Remote Pairing failed at \(deviceIP):\(pairingPort); FFI code \(ffiCode): \(ffiDetail)"
+        )
         idevice_error_free(providerError)
         LocationSimulationState.cleanup()
         return LocationSimulationStatus.providerCreate
