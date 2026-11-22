@@ -1,6 +1,6 @@
 {
   "name": "StikDebug VN",
-  "subtitle": "StikDebug VN và Sweep · Nguồn ứng dụng SenTechTipsVN",
+  "subtitle": "StikDebug VN và Sendeli · Nguồn ứng dụng SenTechTipsVN",
   "website": "https://github.com/dammeiosvn/Stikdebug-VN",
   "iconURL": "https://raw.githubusercontent.com/dammeiosvn/Stikdebug-VN/bc446cbc4f6267cde2d37e1cd8a2970641a24799/assets/StikDebug.png",
   "tintColor": "34C759",
@@ -55,14 +55,24 @@
       ]
     },
     {
-      "name": "Sweep",
+      "name": "Sendeli",
       "bundleIdentifier": "com.sentechtipsvn.sweep",
       "developerName": "SenTechTipsVN",
       "subtitle": "Quản lý đơn và đối soát giao hàng",
-      "localizedDescription": "Sweep giúp nhận ảnh phiếu từ bảng chia sẻ hoặc thư viện Ảnh, quản lý đơn giao hàng, tạo VietQR theo số tiền, chỉ đường Google Maps và đối soát theo tháng.\n\nYêu cầu iOS 17.0 trở lên. Khi cài, giữ tiện ích mở rộng để nhận ảnh từ bảng chia sẻ.",
-      "iconURL": "https://raw.githubusercontent.com/Sentechtipsvn/Sweep/b1ad9da4c92c160d6dca7d32b8f12029222f60c3/Sweep/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+      "localizedDescription": "Sendeli giúp nhận ảnh phiếu từ bảng chia sẻ hoặc thư viện Ảnh, quản lý đơn giao hàng, tạo VietQR theo số tiền, chỉ đường Google Maps và đối soát theo tháng.\n\nYêu cầu iOS 17.0 trở lên. Khi cài, giữ tiện ích mở rộng để nhận ảnh từ bảng chia sẻ.",
+      "iconURL": "https://raw.githubusercontent.com/Sentechtipsvn/Sweep/a9f796d79f0364d0dd6bb300435f1d8f83c26dd5/Sweep/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
       "tintColor": "34C759",
       "versions": [
+        {
+          "version": "0.9.2",
+          "buildVersion": "19",
+          "date": "2026-11-22",
+          "downloadURL": "https://raw.githubusercontent.com/Sentechtipsvn/Sentechtipsvn/f87fb1b1b3deec3d1a0e66bb77a173e3d8765304/altstore/releases/0.9.2/Sendeli-0.9.2-build19-fix.ipa",
+          "size": 4294133,
+          "sha256": "7e32aca4f7a69e0e1017fba84b0598997c98da564241d8d9adff54664d988a9a",
+          "minOSVersion": "17.0",
+          "localizedDescription": "Rút gọn tên tiệm khi nhận phiếu. Bỏ phiếu nhập nhầm hoặc vuốt đơn đang giao để hủy. Chạm để xem ảnh và nhấn giữ để đổi hoặc xoá ảnh chữ ký, chuyển khoản và hàng giao."
+        },
         {
           "version": "0.4.0",
           "buildVersion": "7",
@@ -79,9 +89,10 @@
           "com.apple.security.application-groups"
         ],
         "privacy": {
-          "NSCameraUsageDescription": "Sweep chụp phiếu đơn hàng, phiếu khách ký hoặc ảnh giao dịch khi Sếp chọn Chụp.",
-          "NSPhotoLibraryAddUsageDescription": "Sweep lưu bản ảnh đã nén vào thư viện khi Sếp chọn Lưu ảnh.",
-          "NSPhotoLibraryUsageDescription": "Sweep đọc những ảnh Sếp cho phép để tìm bản trùng, xem ảnh chụp màn hình và xóa các ảnh Sếp xác nhận."
+          "NSCameraUsageDescription": "Sendeli chụp phiếu đơn hàng, phiếu khách ký hoặc ảnh giao dịch khi Sếp chọn Chụp.",
+          "NSLocationWhenInUseUsageDescription": "Sendeli lưu vị trí giao hàng khi Sếp chọn Lấy vị trí hiện tại.",
+          "NSPhotoLibraryAddUsageDescription": "Sendeli lưu bản ảnh đã nén vào thư viện khi Sếp chọn Lưu ảnh.",
+          "NSPhotoLibraryUsageDescription": "Sendeli đọc những ảnh Sếp cho phép để tìm bản trùng, xem ảnh chụp màn hình và xóa các ảnh Sếp xác nhận."
         }
       }
     }
