@@ -891,7 +891,7 @@ private func connectLocationSimulation(_ deviceIP: String, _ pairingFile: String
     }
 
     if let providerError {
-        // Code 3 is the app's status; retain the underlying FFI code in the log.
+        // Status 3 is the app-level status. Keep the real FFI failure for diagnosis.
         let ffiCode = providerError.pointee.code
         let ffiDetail = providerError.pointee.message.flatMap { String(validatingUTF8: $0) } ?? "Unknown FFI error"
         LogManager.shared.addErrorLog(
@@ -899,7 +899,46 @@ private func connectLocationSimulation(_ deviceIP: String, _ pairingFile: String
         )
         idevice_error_free(providerError)
         LocationSimulationState.cleanup()
-        return LocationSimulationStatus.providerCreate
+
+        // Experimental probe: only after the usual VPN endpoint fails.
+        // Do not alter existing successful connections or a running route.
+        // A device-local pairing daemon may reject 127.0.0.1 on some iOS versions.
+        guard deviceIP == DeviceConnectionContext.defaultTargetIPAddress else {
+            return LocationSimulationStatus.providerCreate
+        }
+
+        var loopbackAddress = address
+        let loopbackIP = "127.0.0.1"
+        guard loopbackIP.withCString({ inet_pton(AF_INET, $0, &loopbackAddress.sin_addr) }) == 1 else {
+            return LocationSimulationStatus.invalidIP
+        }
+
+        LogManager.shared.addInfoLog("Cellular loopback probe: trying \(loopbackIP):\(pairingPort) after VPN pairing failure")
+        let loopbackError = withUnsafePointer(to: &loopbackAddress) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                tunnel_create_rppairing(
+                    $0,
+                    socklen_t(MemoryLayout<sockaddr_in>.stride),
+                    "StikDebugLocation",
+                    pairingHandle,
+                    nil,
+                    nil,
+                    &LocationSimulationState.adapter,
+                    &LocationSimulationState.handshake
+                )
+            }
+        }
+        if let loopbackError {
+            let loopbackCode = loopbackError.pointee.code
+            let loopbackDetail = loopbackError.pointee.message.flatMap { String(validatingUTF8: $0) } ?? "Unknown FFI error"
+            LogManager.shared.addErrorLog(
+                "Cellular loopback probe failed at \(loopbackIP):\(pairingPort); FFI code \(loopbackCode): \(loopbackDetail)"
+            )
+            idevice_error_free(loopbackError)
+            LocationSimulationState.cleanup()
+            return LocationSimulationStatus.providerCreate
+        }
+        LogManager.shared.addInfoLog("Cellular loopback probe created a pairing provider; verifying remote services")
     }
 
     let remoteServerError = remote_server_connect_rsd(
@@ -908,6 +947,9 @@ private func connectLocationSimulation(_ deviceIP: String, _ pairingFile: String
         &LocationSimulationState.remoteServer
     )
     if let remoteServerError {
+        let ffiCode = remoteServerError.pointee.code
+        let ffiDetail = remoteServerError.pointee.message.flatMap { String(validatingUTF8: $0) } ?? "Unknown FFI error"
+        LogManager.shared.addErrorLog("Location remote server handshake failed; FFI code \(ffiCode): \(ffiDetail)")
         idevice_error_free(remoteServerError)
         LocationSimulationState.cleanup()
         return LocationSimulationStatus.remoteServer
