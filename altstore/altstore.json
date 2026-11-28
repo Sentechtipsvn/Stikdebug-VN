@@ -64,6 +64,16 @@
       "tintColor": "34C759",
       "versions": [
         {
+          "version": "0.9.3",
+          "buildVersion": "20",
+          "date": "2026-11-28",
+          "downloadURL": "https://github.com/Sentechtipsvn/Sweep/releases/download/sendeli-0.9.3-build20/Sendeli-0.9.3-build20.ipa",
+          "size": 4347074,
+          "sha256": "870fc5a704016c7bcdfe6878ee09cf2ec85ef649e75efb33fb9fac5e30a4f3d2",
+          "minOSVersion": "17.0",
+          "localizedDescription": "Sửa văng sau khi nhập phiếu và gửi báo cáo nhiều ảnh sang Zalo. Chọn thư mục và dữ liệu sao lưu hằng ngày từ 18h giờ Việt Nam, có chạy bù. Thêm nút Nhóm Giao Hàng trong Cài đặt."
+        },
+        {
           "version": "0.9.2",
           "buildVersion": "19",
           "date": "2026-11-22",
